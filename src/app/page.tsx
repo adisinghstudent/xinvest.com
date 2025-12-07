@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Twitter, Loader2, Edit, Trash2, Plus, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { supabase, signInWithGoogle, saveVault, getCurrentUser } from '@/lib/supabase';
+import { supabase, signInWithGoogle, saveVault, getCurrentUser, getPublicLeaderboard } from '@/lib/supabase';
+import { Toast } from '@/components/Toast';
 
 export default function Home() {
   const [handle, setHandle] = useState('');
@@ -14,6 +15,7 @@ export default function Home() {
   const [portfolioWeights, setPortfolioWeights] = useState<{ [ticker: string]: number }>({});
   const [reasoning, setReasoning] = useState<string>('');
   const [error, setError] = useState('');
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,6 +49,12 @@ export default function Home() {
         console.error('Error parsing saved tickers:', e);
       }
     }
+
+    // Fetch leaderboard
+    (async () => {
+      const { data } = await getPublicLeaderboard();
+      if (data) setLeaderboard(data);
+    })();
   }, []);
 
   const handleAnalyze = async (e: React.FormEvent) => {
@@ -90,50 +98,20 @@ export default function Home() {
   };
 
   const handleSaveAndOpenVault = async () => {
-    if (tickers.length === 0) return;
+    // Require Twitter handle to be analyzed first
+    if (!handle || tickers.length === 0) {
+      setError('Please analyze a Twitter account first');
+      return;
+    }
 
     try {
-      // Check if user is authenticated
-      if (!user) {
-        // Trigger Google OAuth popup
-        console.log('Triggering Google sign-in...');
-
-        const { error: authError } = await signInWithGoogle();
-
-        if (authError) {
-          console.error('Auth error details:', authError);
-          setError(`Failed to sign in with Google: ${authError.message || 'Unknown error'}`);
-          return;
-        }
-
-        // Save to localStorage so it's available after auth redirect
-        localStorage.setItem('vaultTickers', JSON.stringify(tickers));
-        localStorage.setItem('vaultWeights', JSON.stringify(portfolioWeights));
-        localStorage.setItem('vaultHandle', handle);
-        localStorage.setItem('vaultReasoning', reasoning);
-
-        // OAuth will redirect to /vault after successful auth
-        return;
-      }
-
-      // Save to Supabase
-      const { error: saveError } = await saveVault({
-        twitter_handle: handle,
-        tickers,
-        weights: portfolioWeights,
-        reasoning,
-      });
-
-      if (saveError) {
-        console.error('Error saving vault:', saveError);
-        setError('Failed to save vault. Please try again.');
-        return;
-      }
-
-      // Also save to localStorage for quick access
+      // Save to localStorage (no auth required to view vault)
       localStorage.setItem('vaultTickers', JSON.stringify(tickers));
       localStorage.setItem('vaultWeights', JSON.stringify(portfolioWeights));
+      localStorage.setItem('vaultHandle', handle);
+      localStorage.setItem('vaultReasoning', reasoning);
 
+      // Navigate to vault
       router.push('/vault');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -247,6 +225,59 @@ export default function Home() {
           </motion.div>
         )}
 
+        {/* Public Leaderboard */}
+        {!loading && tickers.length === 0 && leaderboard.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">🏆 Public Leaderboard</h2>
+              <p className="text-gray-400">Top performing shared vaults</p>
+            </div>
+
+            <div className="bg-[#0F0F0F] border border-[#333] rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-black/50 border-b border-[#333]">
+                  <tr>
+                    <th className="text-left p-4 text-gray-400 font-medium">User</th>
+                    <th className="text-right p-4 text-gray-400 font-medium">24h</th>
+                    <th className="text-right p-4 text-gray-400 font-medium">30d</th>
+                    <th className="text-right p-4 text-gray-400 font-medium">All Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((entry, index) => (
+                    <tr key={index} className="border-b border-[#333] hover:bg-[#1D9BF0]/5 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500 font-mono text-sm">#{index + 1}</span>
+                          <span className="text-white font-medium">
+                            {entry.twitter_handle || 'Anonymous'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className={`p-4 text-right font-semibold ${entry.pnl_24h >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                        {entry.pnl_24h >= 0 ? '+' : ''}{entry.pnl_24h}%
+                      </td>
+                      <td className={`p-4 text-right font-semibold ${entry.pnl_30d >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                        {entry.pnl_30d >= 0 ? '+' : ''}{entry.pnl_30d}%
+                      </td>
+                      <td className={`p-4 text-right font-bold text-lg ${entry.pnl_all_time >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                        {entry.pnl_all_time >= 0 ? '+' : ''}{entry.pnl_all_time}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
         {/* Ticker Editor */}
         {tickers.length > 0 && (
           <motion.div
@@ -354,6 +385,9 @@ export default function Home() {
           <p>Powered by Grok AI & Yahoo Finance</p>
         </motion.div>
       </div>
+
+      {/* Toast Notifications */}
+      {error && <Toast message={error} onClose={() => setError('')} />}
     </main>
   );
 }

@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, TrendingUp, Calendar, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Loader2, TrendingUp, Calendar, RefreshCw, ArrowLeft, Share2 } from 'lucide-react';
 import { PortfolioChart } from '@/components/PortfolioChart';
 import Link from 'next/link';
+import { supabase, saveVault, getCurrentUser, toggleVaultPublic, signInWithGoogle } from '@/lib/supabase';
+import { Toast } from '@/components/Toast';
 
 export default function VaultPage() {
   const [tickers, setTickers] = useState<string[]>([]);
@@ -13,10 +15,13 @@ export default function VaultPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y'>('1Y');
+  const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('vaultTickers');
     const savedWeights = localStorage.getItem('vaultWeights');
+    const savedHandle = localStorage.getItem('vaultHandle');
+    const savedReasoning = localStorage.getItem('vaultReasoning');
 
     if (saved) {
       try {
@@ -70,6 +75,50 @@ export default function VaultPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleShareVault = async () => {
+    try {
+      // Check if user is authenticated
+      const currentUser = await getCurrentUser();
+
+      if (!currentUser) {
+        // Trigger Google OAuth
+        const { error: authError } = await signInWithGoogle();
+        if (authError) {
+          setError('Please sign in to share your vault');
+          return;
+        }
+        // OAuth will redirect, vault will be saved on return
+        return;
+      }
+
+      // Save vault to Supabase first (if not already saved)
+      const savedHandle = localStorage.getItem('vaultHandle');
+      const savedReasoning = localStorage.getItem('vaultReasoning');
+
+      await saveVault({
+        twitter_handle: savedHandle || undefined,
+        tickers,
+        weights: portfolioWeights,
+        reasoning: savedReasoning || undefined,
+      });
+
+      // Toggle public state
+      const newPublicState = !isPublic;
+      const { error } = await toggleVaultPublic(newPublicState);
+
+      if (error) {
+        console.error('Error sharing vault:', error);
+        setError('Failed to update sharing settings');
+        return;
+      }
+
+      setIsPublic(newPublicState);
+      alert(newPublicState ? '✅ Vault is now public! Visible on leaderboard.' : '❌ Vault is now private.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to share vault');
     }
   };
 
@@ -163,14 +212,26 @@ export default function VaultPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={fetchTickerData}
-              disabled={loading}
-              className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-6 py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleShareVault}
+                className={`border rounded-lg px-6 py-3 font-medium transition-all flex items-center gap-2 ${isPublic
+                  ? 'bg-[#1D9BF0] border-[#1D9BF0] text-white hover:bg-[#1A8CD8]'
+                  : 'bg-[#0F0F0F] border-[#333] text-white hover:border-[#1D9BF0]'
+                  }`}
+              >
+                <Share2 className="w-5 h-5" />
+                {isPublic ? 'Public' : 'Share Vault'}
+              </button>
+              <button
+                onClick={fetchTickerData}
+                disabled={loading}
+                className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-6 py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
 
           {/* Time Range Selector */}
@@ -364,6 +425,9 @@ export default function VaultPage() {
           <p className="mt-2">Tracking {tickers.length} {tickers.length === 1 ? 'stock' : 'stocks'}</p>
         </motion.div>
       </div>
+
+      {/* Toast Notifications */}
+      {error && <Toast message={error} onClose={() => setError('')} />}
     </main>
   );
 }

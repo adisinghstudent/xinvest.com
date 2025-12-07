@@ -36,17 +36,40 @@ export const saveVault = async (vaultData: {
     const user = await getCurrentUser();
     if (!user) throw new Error('Not authenticated');
 
-    const { data, error } = await supabase
+    // Check if vault exists
+    const { data: existing } = await supabase
         .from('vaults')
-        .upsert({
-            user_id: user.id,
-            ...vaultData,
-            updated_at: new Date().toISOString(),
-        })
-        .select()
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
         .single();
 
-    return { data, error };
+    if (existing) {
+        // Update existing vault
+        const { data, error } = await supabase
+            .from('vaults')
+            .update({
+                ...vaultData,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+            .select()
+            .single();
+
+        return { data, error };
+    } else {
+        // Insert new vault
+        const { data, error } = await supabase
+            .from('vaults')
+            .insert({
+                user_id: user.id,
+                ...vaultData,
+            })
+            .select()
+            .single();
+
+        return { data, error };
+    }
 };
 
 export const getUserVaults = async () => {
@@ -58,6 +81,33 @@ export const getUserVaults = async () => {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+    return { data, error };
+};
+
+// Toggle vault public sharing
+export const toggleVaultPublic = async (isPublic: boolean) => {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Update all vaults for this user
+    const { data, error } = await supabase
+        .from('vaults')
+        .update({ is_public: isPublic })
+        .eq('user_id', user.id)
+        .select();
+
+    return { data: data?.[0], error };
+};
+
+// Get public leaderboard
+export const getPublicLeaderboard = async () => {
+    const { data, error } = await supabase
+        .from('vaults')
+        .select('twitter_handle, pnl_24h, pnl_30d, pnl_all_time, updated_at')
+        .eq('is_public', true)
+        .order('pnl_all_time', { ascending: false })
+        .limit(50);
 
     return { data, error };
 };
