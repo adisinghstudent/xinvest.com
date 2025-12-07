@@ -7,6 +7,129 @@ import { useRouter } from 'next/navigation';
 import { supabase, signInWithGoogle, saveVault, getCurrentUser, getPublicLeaderboard } from '@/lib/supabase';
 import { Toast } from '@/components/Toast';
 
+// Leaderboard Row Component with Real-Time PnL
+function LeaderboardRow({ entry, rank }: { entry: any; rank: number }) {
+  const [pnl, setPnl] = useState({ pnl_24h: 0, pnl_30d: 0, pnl_all_time: 0 });
+  const [calculating, setCalculating] = useState(true);
+
+  useEffect(() => {
+    calculateRealTimePnL();
+  }, [entry]);
+
+  const calculateRealTimePnL = async () => {
+    try {
+      if (!entry.tickers || !entry.weights) {
+        setPnl({ pnl_24h: 0, pnl_30d: 0, pnl_all_time: 0 });
+        setCalculating(false);
+        return;
+      }
+
+      const tickers = Array.isArray(entry.tickers) ? entry.tickers : [];
+      const weights = entry.weights || {};
+
+      // Fetch data for all tickers
+      const tickerDataPromises = tickers.map(async (ticker: string) => {
+        try {
+          const res = await fetch('/api/ticker-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticker, timeRange: '1Y' }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return { ticker, chartData: data.chartData || [] };
+          }
+          return { ticker, chartData: [] };
+        } catch {
+          return { ticker, chartData: [] };
+        }
+      });
+
+      const tickerData = await Promise.all(tickerDataPromises);
+
+      // Calculate PnL for each timeframe
+      const calculate = (daysAgo: number) => {
+        let totalPnL = 0;
+        let validTickers = 0;
+
+        tickerData.forEach(({ ticker, chartData }) => {
+          if (chartData.length < 2) return;
+
+          const weight = weights[ticker] || 0;
+          if (weight === 0) return;
+
+          let startIndex = 0;
+          if (daysAgo === 1) {
+            startIndex = Math.max(0, chartData.length - 2);
+          } else if (daysAgo === 30) {
+            startIndex = Math.max(0, chartData.length - 30);
+          }
+
+          const startPrice = chartData[startIndex].value;
+          const endPrice = chartData[chartData.length - 1].value;
+
+          const tickerPnL = ((endPrice - startPrice) / startPrice) * 100;
+          totalPnL += tickerPnL * (weight / 100);
+          validTickers++;
+        });
+
+        return validTickers > 0 ? totalPnL : 0;
+      };
+
+      setPnl({
+        pnl_24h: calculate(1),
+        pnl_30d: calculate(30),
+        pnl_all_time: calculate(365),
+      });
+    } catch (error) {
+      console.error('Error calculating PnL:', error);
+      setPnl({ pnl_24h: 0, pnl_30d: 0, pnl_all_time: 0 });
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const formatPnL = (value: number) => {
+    const formatted = value.toFixed(2);
+    return value >= 0 ? `+${formatted}` : formatted;
+  };
+
+  return (
+    <tr className="border-b border-[#333] hover:bg-[#1D9BF0]/5 transition-colors">
+      <td className="p-4">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500 font-mono text-sm">#{rank}</span>
+          {entry.twitter_handle ? (
+            <a
+              href={`https://x.com/${entry.twitter_handle.replace('@', '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1D9BF0] hover:underline font-medium flex items-center gap-1"
+            >
+              @{entry.twitter_handle.replace('@', '')}
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+              </svg>
+            </a>
+          ) : (
+            <span className="text-gray-400 font-medium">Anonymous</span>
+          )}
+        </div>
+      </td>
+      <td className={`p-4 text-right font-semibold ${calculating ? 'text-gray-500' : pnl.pnl_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        {calculating ? '...' : `${formatPnL(pnl.pnl_24h)}%`}
+      </td>
+      <td className={`p-4 text-right font-semibold ${calculating ? 'text-gray-500' : pnl.pnl_30d >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        {calculating ? '...' : `${formatPnL(pnl.pnl_30d)}%`}
+      </td>
+      <td className={`p-4 text-right font-bold text-lg ${calculating ? 'text-gray-500' : pnl.pnl_all_time >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        {calculating ? '...' : `${formatPnL(pnl.pnl_all_time)}%`}
+      </td>
+    </tr>
+  );
+}
+
 export default function Home() {
   const [handle, setHandle] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,6 +140,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const router = useRouter();
+
 
   useEffect(() => {
     // Check auth state
@@ -217,7 +341,7 @@ export default function Home() {
           >
             <div className="text-center">
               <h2 className="text-2xl font-bold text-white mb-2">🏆 Public Leaderboard</h2>
-              <p className="text-gray-400">Top performing shared vaults</p>
+              <p className="text-gray-400">Top performing shared vaults (real-time data)</p>
             </div>
 
             <div className="bg-[#0F0F0F] border border-[#333] rounded-xl overflow-hidden">
@@ -232,28 +356,7 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {leaderboard.map((entry, index) => (
-                    <tr key={index} className="border-b border-[#333] hover:bg-[#1D9BF0]/5 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500 font-mono text-sm">#{index + 1}</span>
-                          <span className="text-white font-medium">
-                            {entry.twitter_handle || 'Anonymous'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className={`p-4 text-right font-semibold ${entry.pnl_24h >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                        {entry.pnl_24h >= 0 ? '+' : ''}{entry.pnl_24h}%
-                      </td>
-                      <td className={`p-4 text-right font-semibold ${entry.pnl_30d >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                        {entry.pnl_30d >= 0 ? '+' : ''}{entry.pnl_30d}%
-                      </td>
-                      <td className={`p-4 text-right font-bold text-lg ${entry.pnl_all_time >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                        {entry.pnl_all_time >= 0 ? '+' : ''}{entry.pnl_all_time}%
-                      </td>
-                    </tr>
+                    <LeaderboardRow key={entry.id || index} entry={entry} rank={index + 1} />
                   ))}
                 </tbody>
               </table>
