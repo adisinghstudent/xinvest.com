@@ -93,7 +93,12 @@ export default function VaultPage() {
         if (user) {
           console.log('Found pending share action, resuming...');
           localStorage.removeItem('pendingShare');
-          handleShareVault();
+
+          // Manually load data from localStorage to ensure we have it
+          const savedTickers = JSON.parse(localStorage.getItem('vaultTickers') || '[]');
+          const savedWeights = JSON.parse(localStorage.getItem('vaultWeights') || '{}');
+
+          handleShareVault(savedTickers, savedWeights);
         }
       }
     };
@@ -103,9 +108,14 @@ export default function VaultPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleShareVault = async () => {
+  const handleShareVault = async (explicitTickers?: string[], explicitWeights?: { [key: string]: number }) => {
     try {
       console.log('Starting handleShareVault...');
+
+      // Use explicit data if provided, otherwise use state
+      const tickersToSave = explicitTickers || tickers;
+      const weightsToSave = explicitWeights || portfolioWeights;
+
       // Check if user is authenticated
       const currentUser = await getCurrentUser();
 
@@ -145,15 +155,15 @@ export default function VaultPage() {
         // Create new vault with public status
         console.log('Creating new vault with data:', {
           twitter_handle: savedHandle,
-          tickers,
-          weights: portfolioWeights,
+          tickers: tickersToSave,
+          weights: weightsToSave,
           is_public: newPublicState
         });
 
         const { data, error } = await saveVault({
           twitter_handle: savedHandle || undefined,
-          tickers,
-          weights: portfolioWeights,
+          tickers: tickersToSave,
+          weights: weightsToSave,
           reasoning: savedReasoning || undefined,
           is_public: newPublicState,
         });
@@ -295,7 +305,7 @@ export default function VaultPage() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleShareVault}
+                onClick={() => handleShareVault()}
                 className={`border rounded-lg px-6 py-3 font-medium transition-all flex items-center gap-2 ${isPublic
                   ? 'bg-[#1D9BF0] border-[#1D9BF0] text-white hover:bg-[#1A8CD8]'
                   : 'bg-[#0F0F0F] border-[#333] text-white hover:border-[#1D9BF0]'
