@@ -21,17 +21,7 @@ A Chrome extension that integrates X Invest directly into X.com (Twitter).
 
 ## Icons
 
-You need to create three icon files in the `dist/icons/` folder:
-- `icon16.png` (16x16px)
-- `icon48.png` (48x48px)  
-- `icon128.png` (128x128px)
-
-**Icon Design**: Use a bright blue (#1D9BF0) upward trending arrow on a black background to match X.com's color scheme.
-
-You can create these icons using:
-1. **Figma/Sketch**: Design the icon and export at different sizes
-2. **Online Tools**: Use favicon generators or icon creators
-3. **Phosphor Icons**: Download the "trend-up" icon from https://phosphoricons.com/ and style it
+The extension uses a single SVG icon (`icon.svg`) from Phosphor Icons - the "TrendUp" icon in X.com's signature blue (#1D9BF0) on a black background. This scales perfectly at all sizes (16px, 48px, 128px).
 
 ## File Structure
 
@@ -40,10 +30,7 @@ dist/
 ├── manifest.json       # Extension configuration
 ├── content.js          # Main injection script
 ├── styles.css          # X.com-matched styling
-├── icons/              # Extension icons (you need to add these)
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
+├── icon.svg            # Phosphor TrendUp icon
 └── README.md           # This file
 ```
 
