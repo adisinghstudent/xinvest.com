@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-const yahooFinance = require('yahoo-finance2').default;
+import { YahooFinance } from 'yahoo-finance2';
 
 export async function POST(request: Request) {
     try {
@@ -13,18 +13,17 @@ export async function POST(request: Request) {
         const startDate = new Date();
         startDate.setFullYear(endDate.getFullYear() - 1); // 1 year history
 
-        const period1 = startDate.toISOString().split('T')[0];
-        const period2 = endDate.toISOString().split('T')[0];
+        const yahooFinance = new YahooFinance();
 
-        const portfolioData: Record<string, number> = {};
         const tickerDataPromises = tickers.map(async (ticker: string) => {
             try {
-                const result = await yahooFinance.historical(ticker, {
-                    period1,
-                    period2,
-                    interval: '1d',
-                });
-                return { ticker, data: result };
+                const queryOptions = {
+                    period1: startDate,
+                    period2: endDate,
+                    interval: '1d' as const,
+                };
+                const data = await yahooFinance.historical(ticker, queryOptions);
+                return { ticker, data: data || [] };
             } catch (e) {
                 console.error(`Failed to fetch data for ${ticker}`, e);
                 return { ticker, data: [] };
@@ -34,26 +33,18 @@ export async function POST(request: Request) {
         const results = await Promise.all(tickerDataPromises);
 
         // Aggregate data
-        // We want a list of { date: 'YYYY-MM-DD', value: number }
-        // We'll normalize to percentage growth or total value assuming $1000 invested in each at start.
-
-        // First, map dates to total value
         const dateMap = new Map<string, number>();
-
-        // Initialize with 0
-        // We need to find the common dates.
-        // A simple approach: Iterate through all results, add to map.
 
         results.forEach(({ ticker, data }) => {
             if (data.length === 0) return;
 
-            const startPrice = data[0].close;
+            const startPrice = data[0].close; // close price
             const shares = 1000 / startPrice; // $1000 investment
 
-            data.forEach((day: any) => {
-                const dateStr = day.date.toISOString().split('T')[0];
+            data.forEach((quote: any) => {
+                const dateStr = quote.date.toISOString().split('T')[0];
                 const currentVal = dateMap.get(dateStr) || 0;
-                dateMap.set(dateStr, currentVal + (day.close * shares));
+                dateMap.set(dateStr, currentVal + (quote.close * shares));
             });
         });
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
 // Initialize OpenAI client for Grok (xAI)
 // Note: You need to set XAI_API_KEY in your .env.local file
@@ -11,12 +12,37 @@ const client = new OpenAI({
 // Twitter API bearer token
 const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN || 'dummy-token';
 
+// Supabase client
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
 export async function POST(request: Request) {
     try {
         const { handle } = await request.json();
 
         if (!handle) {
             return NextResponse.json({ error: 'Handle is required' }, { status: 400 });
+        }
+
+        // Check if analysis already exists in Supabase
+        const { data: existingAnalysis } = await supabase
+            .from('analyses')
+            .select('*')
+            .eq('handle', handle)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (existingAnalysis) {
+            console.log(`Using cached analysis for @${handle}`);
+            return NextResponse.json({
+                tickers: existingAnalysis.tickers,
+                reasoning: existingAnalysis.reasoning,
+                tweets: existingAnalysis.tweets,
+                cached: true,
+            });
         }
 
         // 1. Fetch last 20 tweets using Twitter API
@@ -55,6 +81,26 @@ export async function POST(request: Request) {
                 tickers: ['SPY', 'QQQ', 'AAPL', 'MSFT', 'TSLA'],
                 reasoning: 'Fallback: Parsing error occurred. Using default diversified portfolio.'
             };
+        }
+
+        // Store/Update in Supabase
+        try {
+            const { error } = await supabase
+                .from('analyses')
+                .upsert(
+                    {
+                        handle,
+                        tweets,
+                        tickers: result.tickers,
+                        reasoning: result.reasoning,
+                    },
+                    { onConflict: 'handle' }
+                );
+            if (error) throw error;
+            console.log(`Stored/Updated analysis for @${handle} in Supabase`);
+        } catch (dbError) {
+            console.error('Error storing in Supabase:', dbError);
+            // Continue anyway, don't fail the response
         }
 
         // Log AI reasoning and picks

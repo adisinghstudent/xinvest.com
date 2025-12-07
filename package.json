@@ -9,8 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@supabase/supabase-js": "^2.86.2",
     "cheerio": "^1.1.2",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "d3": "^7.9.0",
     "framer-motion": "^12.23.25",
     "lucide-react": "^0.556.0",
     "next": "16.0.7",
@@ -20,6 +25,7 @@
     "react-dom": "19.2.0",
     "recharts": "^3.5.1",
     "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7",
     "yahoo-finance2": "^3.10.2"
   },
   "devDependencies": {
