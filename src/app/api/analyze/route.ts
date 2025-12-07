@@ -141,7 +141,7 @@ async function fetchTweetsFromAPI(handle: string): Promise<string[]> {
         }
 
         // Now, get tweets
-        const tweetsRes = await fetch(`https://api.twitter.com/2/users/${userId}/tweets?max_results=20&tweet.fields=text,created_at`, {
+        const tweetsRes = await fetch(`https://api.twitter.com/2/users/${userId}/tweets?max_results=5&tweet.fields=text,created_at`, {
             headers: {
                 'Authorization': `Bearer ${TWITTER_BEARER_TOKEN}`,
             },

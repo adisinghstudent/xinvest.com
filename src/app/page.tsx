@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, TrendingUp, Calendar, RefreshCw } from 'lucide-react';
-import { PortfolioChart } from '@/components/PortfolioChart';
+import { Search, Twitter, Loader2, Edit, Trash2, Plus, TrendingUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
-  const [tickers, setTickers] = useState<string[]>(['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA']);
-  const [tickerData, setTickerData] = useState<any[]>([]);
+  const [handle, setHandle] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y'>('1Y');
+  const [tickers, setTickers] = useState<string[]>([]);
+  const [reasoning, setReasoning] = useState<string>('');
+  const [error, setError] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     const saved = localStorage.getItem('vaultTickers');
@@ -26,103 +27,105 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    if (tickers.length > 0) {
-      fetchTickerData();
-    }
-  }, [tickers, timeRange]);
+  const handleAnalyze = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!handle) return;
 
-  const fetchTickerData = async () => {
     setLoading(true);
     setError('');
+    setTickers([]);
+    setReasoning('');
+
     try {
-      const promises = tickers.map(async (ticker) => {
-        try {
-          const res = await fetch('/api/ticker-history', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ticker, timeRange }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            return { ticker, chartData: data.chartData || [], error: null };
-          } else {
-            return { ticker, chartData: [], error: 'Failed to fetch data' };
-          }
-        } catch (e) {
-          return { ticker, chartData: [], error: 'Network error' };
-        }
+      const analyzeRes = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle }),
       });
 
-      const results = await Promise.all(promises);
-      setTickerData(results);
+      if (!analyzeRes.ok) throw new Error('Failed to analyze tweets');
+      const analyzeData = await analyzeRes.json();
+
+      if (analyzeData.error) throw new Error(analyzeData.error);
+
+      setTickers(analyzeData.tickers || []);
+      setReasoning(analyzeData.reasoning || 'No reasoning provided.');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
   };
 
-  const getPerformance = (data: any[]) => {
-    if (!data || data.length < 2) return null;
-    const firstValue = data[0].value;
-    const lastValue = data[data.length - 1].value;
-    const change = ((lastValue - firstValue) / firstValue) * 100;
-    return {
-      change: change.toFixed(2),
-      isPositive: change >= 0,
-      firstValue,
-      lastValue
-    };
+  const handleSaveAndOpenVault = () => {
+    if (tickers.length > 0) {
+      localStorage.setItem('vaultTickers', JSON.stringify(tickers));
+      router.push('/vault');
+    }
+  };
+
+  const updateTicker = (index: number, value: string) => {
+    const newTickers = [...tickers];
+    newTickers[index] = value.toUpperCase();
+    setTickers(newTickers);
+  };
+
+  const deleteTicker = (index: number) => {
+    setTickers(tickers.filter((_, i) => i !== index));
+  };
+
+  const addTicker = () => {
+    setTickers([...tickers, '']);
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 md:p-8 selection:bg-[#1D9BF0] selection:text-white">
-      <div className="w-full max-w-7xl mx-auto space-y-8">
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 md:p-24 bg-black text-white selection:bg-[#1D9BF0] selection:text-white">
+      <div className="w-full max-w-4xl space-y-12">
 
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
+          className="text-center space-y-4"
         >
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
-                Vault
-              </h1>
-              <p className="text-gray-400 text-lg mt-2">
-                Track your portfolio performance powered by Yahoo Finance
-              </p>
-            </div>
-            <button
-              onClick={fetchTickerData}
-              disabled={loading}
-              className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-6 py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+            X Invest
+          </h1>
+          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
+            Analyze any X (Twitter) account and generate a personalized stock portfolio
+          </p>
+        </motion.div>
 
-          {/* Time Range Selector */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Calendar className="w-5 h-5 text-gray-400" />
-            <div className="flex gap-2">
-              {(['1M', '3M', '6M', '1Y'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${timeRange === range
-                      ? 'bg-[#1D9BF0] text-white'
-                      : 'bg-[#0F0F0F] border border-[#333] text-gray-400 hover:border-[#1D9BF0] hover:text-white'
-                    }`}
-                >
-                  {range}
-                </button>
-              ))}
+        {/* Input Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="w-full max-w-md mx-auto"
+        >
+          <form onSubmit={handleAnalyze} className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <span className="text-gray-500 text-lg">@</span>
             </div>
-          </div>
+            <input
+              type="text"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+              placeholder="elonmusk"
+              className="w-full bg-[#0F0F0F] border border-[#333] text-white text-lg rounded-full py-4 pl-10 pr-14 focus:outline-none focus:border-[#1D9BF0] focus:ring-1 focus:ring-[#1D9BF0] transition-all placeholder:text-gray-600"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading || !handle}
+              className="absolute right-2 top-2 bottom-2 bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white rounded-full px-6 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+            </button>
+          </form>
+          {error && (
+            <p className="text-red-500 text-center mt-4">{error}</p>
+          )}
         </motion.div>
 
         {/* Loading State */}
@@ -130,110 +133,89 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center text-gray-400 space-y-4 py-12"
+            className="text-center text-gray-400 space-y-2"
           >
-            <Loader2 className="w-12 h-12 animate-spin mx-auto text-[#1D9BF0]" />
-            <p className="text-lg">Loading stock data from Yahoo Finance...</p>
+            <p>Grok is analyzing tweets...</p>
             <div className="h-1 w-64 bg-[#333] rounded-full mx-auto overflow-hidden">
               <div className="h-full bg-[#1D9BF0] w-1/3 animate-progress"></div>
             </div>
           </motion.div>
         )}
 
-        {/* Error State */}
-        {error && (
+        {/* Ticker Editor */}
+        {tickers.length > 0 && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-center"
-          >
-            <p className="text-red-400">{error}</p>
-          </motion.div>
-        )}
-
-        {/* Tickers Grid */}
-        {!loading && tickerData.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+            className="space-y-8"
           >
-            {tickerData.map((ticker, index) => {
-              const performance = getPerformance(ticker.chartData);
+            {/* Reasoning */}
+            {reasoning && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-2 text-[#1D9BF0]">
+                  <Twitter className="w-5 h-5" />
+                  <span className="font-medium">Grok's Analysis {handle && `for @${handle}`}</span>
+                </div>
+                <div className="bg-[#0F0F0F] border border-[#333] rounded-lg p-4 text-center">
+                  <p className="text-gray-300">{reasoning}</p>
+                </div>
+              </div>
+            )}
 
-              return (
-                <motion.div
-                  key={ticker.ticker}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-[#0F0F0F] border border-[#333] rounded-xl p-6 hover:border-[#1D9BF0] transition-all"
-                >
-                  {/* Ticker Header */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div>
-                      <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                        {ticker.ticker}
-                        <TrendingUp className="w-5 h-5 text-[#1D9BF0]" />
-                      </h3>
-                      {performance && (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-sm text-gray-400">
-                            ${performance.lastValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                          <p className={`text-lg font-semibold ${performance.isPositive ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                            {performance.isPositive ? '+' : ''}{performance.change}%
-                          </p>
-                        </div>
-                      )}
-                    </div>
+            {/* Editable Tickers */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-2 text-[#1D9BF0]">
+                <Edit className="w-5 h-5" />
+                <span className="font-medium">Edit Your Portfolio Tickers</span>
+              </div>
+              <div className="space-y-4">
+                {tickers.map((ticker, index) => (
+                  <div key={index} className="flex items-center gap-4 bg-[#0F0F0F] border border-[#333] rounded-lg p-4 hover:border-[#1D9BF0] transition-all">
+                    <input
+                      type="text"
+                      value={ticker}
+                      onChange={(e) => updateTicker(index, e.target.value)}
+                      placeholder="Enter ticker (e.g., AAPL)"
+                      className="flex-1 bg-transparent text-white border-none outline-none text-lg"
+                    />
+                    <button
+                      onClick={() => deleteTicker(index)}
+                      className="text-red-500 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
-
-                  {/* Chart */}
-                  {ticker.chartData.length > 0 ? (
-                    <PortfolioChart data={ticker.chartData} />
-                  ) : (
-                    <div className="h-[400px] flex items-center justify-center">
-                      <div className="text-center space-y-2">
-                        <p className="text-gray-500">No data available for {ticker.ticker}</p>
-                        {ticker.error && (
-                          <p className="text-sm text-red-400">{ticker.error}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
+                ))}
+                <button
+                  onClick={addTicker}
+                  className="w-full bg-[#0F0F0F] border border-[#333] rounded-lg p-4 text-[#1D9BF0] hover:bg-[#1D9BF0] hover:text-black transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Ticker
+                </button>
+              </div>
+              <button
+                onClick={handleSaveAndOpenVault}
+                disabled={loading || tickers.length === 0}
+                className="w-full bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white rounded-lg py-4 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <TrendingUp className="w-5 h-5" />
+                Open Vault
+              </button>
+            </div>
           </motion.div>
         )}
 
-        {/* Empty State */}
-        {!loading && tickerData.length === 0 && !error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20 space-y-4"
-          >
-            <TrendingUp className="w-16 h-16 mx-auto text-gray-600" />
-            <h2 className="text-2xl font-bold text-gray-400">No stocks in your vault</h2>
-            <p className="text-gray-500">Add some tickers to get started</p>
-          </motion.div>
-        )}
-
-        {/* Footer Info */}
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="text-center text-gray-500 text-sm py-8 border-t border-[#333]"
+          className="text-center text-gray-500 text-sm"
         >
-          <p>Data provided by Yahoo Finance API v2 • No API key required</p>
-          <p className="mt-2">Tracking {tickers.length} {tickers.length === 1 ? 'stock' : 'stocks'}</p>
+          <p>Powered by Grok AI & Yahoo Finance</p>
         </motion.div>
       </div>
     </main>
   );
 }
-
