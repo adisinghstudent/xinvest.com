@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { YahooFinance } from 'yahoo-finance2';
+import yahooFinance from 'yahoo-finance2';
 
 export async function POST(request: Request) {
     try {
@@ -9,11 +9,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Tickers array is required' }, { status: 400 });
         }
 
-        const yahooFinance = new YahooFinance();
-
         const tickerDataPromises = tickers.map(async (ticker: string) => {
             try {
-                const quote = await yahooFinance.quote(ticker);
+                const quote = await yahooFinance.quote(ticker) as any;
                 return {
                     ticker,
                     price: quote.regularMarketPrice || 0,

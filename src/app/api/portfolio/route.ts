@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { YahooFinance } from 'yahoo-finance2';
+import yahooFinance from 'yahoo-finance2';
 
 export async function POST(request: Request) {
     try {
@@ -13,8 +13,6 @@ export async function POST(request: Request) {
         const startDate = new Date();
         startDate.setFullYear(endDate.getFullYear() - 1); // 1 year history
 
-        const yahooFinance = new YahooFinance();
-
         const tickerDataPromises = tickers.map(async (ticker: string) => {
             try {
                 const queryOptions = {
@@ -22,7 +20,7 @@ export async function POST(request: Request) {
                     period2: endDate,
                     interval: '1d' as const,
                 };
-                const data = await yahooFinance.historical(ticker, queryOptions);
+                const data = await yahooFinance.historical(ticker, queryOptions) as any[];
                 return { ticker, data: data || [] };
             } catch (e) {
                 console.error(`Failed to fetch data for ${ticker}`, e);
