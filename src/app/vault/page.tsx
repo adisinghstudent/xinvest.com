@@ -16,12 +16,18 @@ export default function VaultPage() {
   const [error, setError] = useState<string>('');
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y'>('1Y');
   const [isPublic, setIsPublic] = useState(false);
+  const [vaultId, setVaultId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('vaultTickers');
     const savedWeights = localStorage.getItem('vaultWeights');
     const savedHandle = localStorage.getItem('vaultHandle');
     const savedReasoning = localStorage.getItem('vaultReasoning');
+    const savedVaultId = localStorage.getItem('currentVaultId');
+
+    if (savedVaultId) {
+      setVaultId(savedVaultId);
+    }
 
     if (saved) {
       try {
@@ -94,25 +100,41 @@ export default function VaultPage() {
         return;
       }
 
-      // Save vault to Supabase first (if not already saved)
       const savedHandle = localStorage.getItem('vaultHandle');
       const savedReasoning = localStorage.getItem('vaultReasoning');
 
-      await saveVault({
-        twitter_handle: savedHandle || undefined,
-        tickers,
-        weights: portfolioWeights,
-        reasoning: savedReasoning || undefined,
-      });
-
       // Toggle public state
       const newPublicState = !isPublic;
-      const { error } = await toggleVaultPublic(newPublicState);
 
-      if (error) {
-        console.error('Error sharing vault:', error);
-        setError('Failed to update sharing settings');
-        return;
+      if (vaultId) {
+        // Update existing vault's public status
+        const { error } = await toggleVaultPublic(vaultId, newPublicState);
+
+        if (error) {
+          console.error('Error sharing vault:', error);
+          setError('Failed to update sharing settings');
+          return;
+        }
+      } else {
+        // Create new vault with public status
+        const { data, error } = await saveVault({
+          twitter_handle: savedHandle || undefined,
+          tickers,
+          weights: portfolioWeights,
+          reasoning: savedReasoning || undefined,
+          is_public: newPublicState,
+        });
+
+        if (error) {
+          console.error('Error creating vault:', error);
+          setError('Failed to create vault');
+          return;
+        }
+
+        if (data) {
+          setVaultId(data.id);
+          localStorage.setItem('currentVaultId', data.id);
+        }
       }
 
       setIsPublic(newPublicState);

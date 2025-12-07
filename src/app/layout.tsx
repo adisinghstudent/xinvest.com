@@ -15,8 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "X Invest - Vault",
-  description: "Track your stock portfolio performance with Yahoo Finance",
+  title: "X Invest - AI-Powered Stock Portfolio Analysis",
+  description: "Analyze any X (Twitter) account and generate a personalized stock portfolio powered by Grok AI and Yahoo Finance",
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({

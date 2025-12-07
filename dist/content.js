@@ -379,7 +379,7 @@
     localStorage.setItem('vaultReasoning', currentReasoning);
 
     // Open your web app in a new tab
-    window.open('http://localhost:3000/vault', '_blank');
+    window.open('https://xinvest-com.vercel.app/vault', '_blank');
   }
 
   // Initialize

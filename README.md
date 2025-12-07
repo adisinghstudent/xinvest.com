@@ -1,255 +1,396 @@
-<p>
-    <a href="https://github.com/achannarasappa/ticker/releases"><img src="https://img.shields.io/github/v/release/achannarasappa/ticker" alt="Latest Release"></a>
-    <a href="https://github.com/achannarasappa/ticker/actions"><img src="https://github.com/achannarasappa/ticker/workflows/test/badge.svg" alt="Build Status"></a>
-    <a href='https://coveralls.io/github/achannarasappa/ticker?branch=master'><img src='https://coveralls.io/repos/github/achannarasappa/ticker/badge.svg?branch=master' alt='Coverage Status' /></a>
-    <a href='https://goreportcard.com/badge/github.com/achannarasappa/ticker'><img src='https://goreportcard.com/badge/github.com/achannarasappa/ticker' alt='Report Card' /></a>
-</p>
+# 🚀 X Invest
 
-<h1 align="center">Ticker</h2>
-<p align="center">
-Terminal stock & crypto price watcher and position tracker
-</p>
-<p align="center">
-<img align="center" src="./docs/ticker.gif" />
-</p>
+> **Transform X (Twitter) profiles into investment portfolios powered by AI**
 
-## Features
+[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://xinvest-com.vercel.app)
+[![Chrome Extension](https://img.shields.io/badge/chrome-extension-blue)](./dist)
+[![License](https://img.shields.io/badge/license-GPL--3.0-green)](./LICENSE)
 
-* Live stock & crypto price quotes
-* Track value of your stock positions
-* Support for multiple cost basis lots
-* Support for pre and post market price quotes
+X Invest analyzes any X (Twitter) account using Grok AI to generate personalized stock portfolios based on their tweets, interests, and expertise. Share your investment strategy, discover what others are investing in, and compete on a public leaderboard.
 
-## Install
+---
 
-Download the pre-compiled binaries from the [releases page](https://github.com/achannarasappa/ticker/releases) and copy to a location in `PATH` or see quick installs below
+## ✨ Features
 
-**homebrew**
+### 🤖 **AI-Powered Portfolio Generation**
+- **Grok AI Analysis**: Analyzes the last 20 tweets from any X account
+- **Smart Stock Selection**: Generates 10 personalized stock picks based on user interests
+- **Reasoning Transparency**: See exactly why each stock was chosen
+- **Custom Weights**: AI assigns portfolio weights based on conviction levels
+
+### 📊 **Real-Time Performance Tracking**
+- **Live Price Data**: Real-time stock prices via Yahoo Finance API
+- **Historical Charts**: Interactive performance charts showing portfolio growth
+- **Multiple Timeframes**: View performance over 24h, 30d, or all-time
+- **PnL Tracking**: Automatic profit & loss calculation across all timeframes
+
+### 🏆 **Public Leaderboard**
+- **Share Your Vault**: Make your portfolio public with one click
+- **Compete Globally**: See how your strategy performs vs. others
+- **Performance Rankings**: Sorted by 24h, 30d, and all-time returns
+- **Anonymous or Public**: Choose to share with your X handle or stay anonymous
+
+### 🔐 **Vault System**
+- **Personal Vaults**: Save and track multiple portfolio strategies
+- **Edit Anytime**: Adjust tickers and weights as markets change
+- **Privacy First**: Vaults are private by default
+- **Share Selectively**: Choose which vaults to make public
+
+### 🌐 **Chrome Extension**
+- **Native X.com Integration**: Adds "Invest" tab directly in X's sidebar
+- **One-Click Analysis**: Analyze any profile without leaving X
+- **Seamless Experience**: Matches X.com's design perfectly
+- **Instant Access**: Toggle between timeline and portfolio view
+
+---
+
+## 🎯 How It Works
+
+### 1️⃣ **Analyze Any X Account**
+
 ```
-brew install achannarasappa/tap/ticker
-```
-
-**linux**
-```sh
-curl -Ls https://api.github.com/repos/achannarasappa/ticker/releases/latest \
-| grep -wo "https.*linux-amd64*.tar.gz" \
-| wget -qi - \
-&& tar -xvf ticker*.tar.gz ticker \
-&& chmod +x ./ticker \
-&& sudo mv ticker /usr/local/bin/
-```
-
-**windows**
-```
-winget install -e --id achannarasappa.ticker
-```
-
-**docker**
-```sh
-docker run -it --rm achannarasappa/ticker
-```
-
-Note: config file can be mounted from the host machine by using a bind mount with `-v ~/.ticker.yaml:/.ticker.yaml`
-
-**snap**
-```sh
-sudo snap install ticker
-sudo snap connect ticker:ticker-config
+Enter @username → Grok analyzes tweets → AI generates portfolio
 ```
 
-Note: config file will need to be set with `--config $HOME/ticker.yaml` since Snap does not allow access to dotfiles
+**Example:**
+- Input: `@elonmusk`
+- Analysis: "Strong interest in technology, AI, sustainable energy, and space exploration"
+- Output: Portfolio weighted toward TSLA, NVDA, AI leaders, and aerospace stocks
 
-### Third-party repositories
-These repositories are maintained by a third-party and may not have the latest versions available
+### 2️⃣ **Review & Customize**
 
-**MacPorts**
+- **See AI Reasoning**: Understand why each stock was selected
+- **Edit Tickers**: Add, remove, or change stock symbols
+- **Adjust Weights**: Fine-tune portfolio allocation
+- **Validate**: Ensure weights total 100%
+
+### 3️⃣ **Save to Vault**
+
+- **Create Vault**: Save your portfolio with one click
+- **Track Performance**: Watch real-time price changes
+- **View Charts**: Interactive historical performance graphs
+- **Monitor PnL**: See gains/losses across multiple timeframes
+
+### 4️⃣ **Share & Compete**
+
+- **Make Public**: Toggle "Share Vault" to join the leaderboard
+- **Climb Rankings**: Compete based on portfolio performance
+- **Inspire Others**: Let people see your investment strategy
+- **Learn Together**: Discover what top performers are investing in
+
+---
+
+## 🖥️ Screenshots
+
+### Home Page - Portfolio Generator
 ```
-sudo port selfupdate
-sudo port install ticker
-```
-
-## Quick Start
-
-```sh
-ticker -w NET,AAPL,TSLA
-```
-
-## Usage
-|Option Name|Alias|Flag|Default|Description|
-|-------------------|--|-------------------|----------------|-------------------------------------------------|
-|                   |  |--config           |`~/.ticker.yaml`|config file location with watchlist and positions|
-|`interval`         |-i|--interval         |`5`             |Refresh interval in seconds|
-|`watchlist`        |-w|--watchlist        |                |comma separated list of symbols to watch|
-|`show-tags`        |  |--show-tags        |                |display currency, exchange name, and quote delay for each quote |
-|`show-fundamentals`|  |--show-fundamentals|                |display open price, previous close, and day range |
-|`show-separator`   |  |--show-separator   |                |layout with separators between each quote|
-|`show-summary`     |  |--show-summary     |                |show total day change, total value, and total value change|
-|`show-holdings`    |  |--show-holdings    |                |show holdings including weight, average cost, and quantity|
-|`sort`             |  |--sort             |                |sort quotes on the UI - options are change percent (default), `alpha`, `value`, and `user`|
-|`version`          |  |--version          |                |print the current version number|
-|`debug`            |  |                   |                |enable debug logging to `./ticker-log-<date>.log`|
-
-## Configuration
-
-Configuration is not required to watch stock price but is helpful when always watching the same stocks. Configuration can also be used to set cost basis lots which will in turn be used to show total gain or loss on any position.
-
-```yaml
-# ~/.ticker.yaml
-show-summary: true
-show-tags: true
-show-fundamentals: true
-show-separator: true
-show-holdings: true
-interval: 5
-currency: USD
-currency-summary-only: false
-watchlist:
-  - NET
-  - TEAM
-  - ESTC
-  - BTC-USD # Bitcoin price via Yahoo
-  - SOL.X # Solana price via Coinbase
-  - BIT-30MAY25-CDE.CB # Bitcoin futures contract price via Coinbase
-lots:
-  - symbol: "ABNB"
-    quantity: 35.0
-    unit_cost: 146.00
-  - symbol: "ARKW"
-    quantity: 20.0
-    unit_cost: 152.25
-  - symbol: "ARKW"
-    quantity: 20.0
-    unit_cost: 145.35
-    fixed_cost: 7.00 # e.g. brokerage commission fee
-groups:
-  - name: crypto
-    watchlist:
-      - SHIB-USD
-      - VGX-USD
-    holdings:
-      - symbol: SOL1-USD
-        quantity: 17
-        unit_cost: 159.10
+┌─────────────────────────────────────────────────┐
+│              X Invest                           │
+│  Analyze any X account and generate a          │
+│  personalized stock portfolio                  │
+│                                                 │
+│  ┌──────────────────────────────────┐          │
+│  │ @  elonmusk              [🔍]    │          │
+│  └──────────────────────────────────┘          │
+│                                                 │
+│  Grok's Analysis:                              │
+│  "Strong focus on AI, sustainable energy..."   │
+│                                                 │
+│  Portfolio Tickers & Weights:                  │
+│  ┌──────────────────────────────────┐          │
+│  │ TSLA                    15.0%  ✏️│          │
+│  │ NVDA                    12.0%  ✏️│          │
+│  │ MSFT                    10.0%  ✏️│          │
+│  └──────────────────────────────────┘          │
+│                                                 │
+│  [Open Vault →]                                │
+└─────────────────────────────────────────────────┘
 ```
 
-* All properties in `.ticker.yaml` are optional
-* Symbols not on the watchlist that exists in `lots` are implicitly added to the watchlist
-* To add multiple cost basis lots (`quantity`, `unit_cost`) for the same `symbol`, include two ore more entries - see `ARKW` example above
-* `.ticker.yaml` can be set in user home directory, the current directory, or [XDG config home](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)
-
-### Display Options
-
-With  `--show-summary`, `--show-tags`, `--show-fundamentals`, `--show-holdings`, and `--show-separator` options set, the layout and information displayed expands:
-
-<img src="./docs/ticker-all-options.png" />
-
-### Sorting
-
-It's possible to set a custom sort order with the `--sort` flag or `sort:` config option with these options:
-
-* Default - change percent with closed markets at the end
-* `alpha` to sort alphabetically by symbol
-* `value` to sort by position value
-* `user` to sort by the order defined in configuration with positions on top then lots
-
-### Groups
-
-Watchlists and holdings can be grouped in `.ticker.yml` under the `groups` property. While running `ticker`, press <kbd>TAB</kbd> to cycle forward through groups or <kbd>SHIFT+TAB</kbd> to cycle backward.
-
-* If top level `watchlist` or `lots` properties are defined in the configuration file, the entries there will be added to a group named `default` which will always be shown first
-* Ordering is defined by order in the configuration file
-* The `holdings` property replaces `lots` under `groups` but serves the same purpose
-
-### Data Sources & Symbols
-
-`ticker` pulls market data from a few different sources with Yahoo Finance as the default. Symbols for non default data sources follow the format `<symbol>.<source>` where `<symbol>` is the canonical symbol within that data source and `<source>` is the data source specifier. Below is a list of the supported data sources and their specifiers:
-
-* *none* - symbols with no suffix will default to Yahoo Finance as the data source
-* `.X` - symbols with this suffix are shorthand symbols that are specific to ticker and intended to provide more concise and familiar symbols for popular assets (e.g. using `SOL.X` rather than `SOLANA.CG`)
-  * The full list of ticker symbols can be found [here](https://github.com/achannarasappa/ticker-static/blob/master/symbols.csv). Initial values are populated with the top cryptocurrencies by volume on Coinbase at the time of update
-* `.CB` - symbols with this suffix will use Coinbase as the data source. The symbol can be found by searching for the asset on [Coinbase](https://www.coinbase.com/explore/s/listed) and finding the symbol for the asset. (e.g. for Starknet check the [market page](https://www.coinbase.com/advanced-trade/spot/STRK-USD) to find the symbol `STRK` and set the symbol to `STRK.CB` in ticker).
-
-Note: Coincap (`.CC`) and CoinGecko (`.CG`) are no longer supported after v5.0.0
-
-### Currency Conversion
-
-`ticker` supports converting from the exchange's currency to a local currency. This can be set by setting the `currency` property in `.ticker.yaml` to a [ISO 4217 3-digit currency code](https://docs.1010data.com/1010dataReferenceManual/DataTypesAndFormats/currencyUnitCodes.html).
-
-<img src="./docs/ticker-currency.png" />
-
-* When a `currency` is defined, all values are converted including summary, quote, and position
-* Add cost basis lots in the currency of the exchange - these will be converted automatically when `currency` is defined
-* If a `currency` is not set (default behavior) and the `show-summary` option is enabled, the summary will be calculated in USD regardless of the exchange currency to avoid mixing currencies
-* Currencies are retrieved only once at start time - currency exchange rates do fluctuate over time and thus converted values may vary depending on when ticker is started
-* If the `currency-summary-only` is set to `true` and a value is set for `currency`, only the summary values will be converted
-* If `currency-disable-unit-cost-conversion` flag to `true`, currency conversion will not be done when calculating the cost basis. This can be useful for users that purchase a non-US asset and want to use the currency exchange rate at the time of purchase by inputting the unit cost in their local currency (set in `currency`) rather than using the most recent currency exchange rate.
-
-### Custom Color Schemes
-
-`ticker` supports setting custom color schemes from the config file. Colors are represented by a [hex triplet](https://en.wikipedia.org/wiki/Web_colors#Hex_triplet). Below is an annotated example config block from `.ticker.yaml` where custom colors are set:
-
-```yaml
-# ~/.ticker.yaml
-watchlist:
-  - NET
-  - TEAM
-  - ESTC
-  - BTC-USD
-colors:
-  text: "#005fff"
-  text-light: "#0087ff"
-  text-label: "#00d7ff"
-  text-line: "#00ffff"
-  text-tag: "#005fff"
-  background-tag: "#0087ff"
+### Vault View - Performance Dashboard
+```
+┌─────────────────────────────────────────────────┐
+│  @elonmusk's Portfolio                         │
+│                                                 │
+│  📈 Performance Chart                          │
+│  ┌──────────────────────────────────┐          │
+│  │     ╱╲                            │          │
+│  │    ╱  ╲      ╱╲                  │          │
+│  │   ╱    ╲    ╱  ╲                 │          │
+│  │  ╱      ╲  ╱    ╲                │          │
+│  │ ╱        ╲╱      ╲               │          │
+│  └──────────────────────────────────┘          │
+│                                                 │
+│  💰 PnL:  +12.5% (24h)  +45.2% (30d)          │
+│                                                 │
+│  📊 Holdings:                                  │
+│  TSLA  $245.30  +2.3%                         │
+│  NVDA  $495.20  +1.8%                         │
+│  MSFT  $378.50  +0.9%                         │
+│                                                 │
+│  [Share Vault] [Edit Portfolio]               │
+└─────────────────────────────────────────────────┘
 ```
 
-* Terminals supporting TrueColor will be able to represent the full color space and in other cases colors will be down sampled
-* Any omitted or invalid colors will revert to default color scheme values
-
-### Printing Holdings
-
-`ticker` supports printing holdings to the terminal as text by using `ticker print`. Output defaults to JSON but CSV output can also be generated by passing the `--format=csv` flag.
-
-```sh
-$ ticker --config=./.ticker.yaml print
-[{"name":"Airbnb, Inc.","symbol":"ABNB","price":164.71,"value":16965.13,"cost":15038,"quantity":103,"weight":53.66651978212161},{"name":"Tesla, Inc.","symbol":"TSLA","price":732.35,"value":14647,"cost":15660,"quantity":20,"weight":46.33348021787839}]
+### Public Leaderboard
+```
+┌─────────────────────────────────────────────────┐
+│  🏆 Public Leaderboard                         │
+│  Top performing shared vaults                  │
+│                                                 │
+│  #  User          24h      30d      All Time   │
+│  ─────────────────────────────────────────────  │
+│  1  @elonmusk    +5.2%   +45.2%   +127.8%     │
+│  2  @cathiewood  +4.8%   +38.1%   +98.3%      │
+│  3  @chamath     +3.9%   +32.5%   +87.2%      │
+│  4  @naval       +3.2%   +28.9%   +76.5%      │
+│  5  @balajis     +2.8%   +25.3%   +65.1%      │
+└─────────────────────────────────────────────────┘
 ```
 
-* Ensure there is at least one lot in the configuration file in order to generate output
-* A specific config file can be specified with the `--config` flag
+---
 
-## Notes
+## 🛠️ Tech Stack
 
-* **Market data delay**
-  * _Yahoo Finance_ - Market data pulled from Yahoo finance will have some lag (<~30s) introduced by intermediary systems and certain exchanges will impose intentional delays on data. NYSE and NASDAQ offer real-time market data but other exchanges may not. Consult the [help article](https://help.yahoo.com/kb/SLN2310.html) on exchange delays to determine which exchanges you can expect delays for or use the `--show-tags` flag to include timeliness of data alongside quotes in `ticker`. Yahoo Finance also relies on polling which introduces some delay (>=5s). `refresh-interval` determines the polling frequency.
-  * _Coinbase_ - Market data for spot assets on Coinbase is directly streamed from the exchange through a WebSocket connection and is available in near real-time. Derivatives assets (i.e. symbols with `-CDE` suffix) are polling based however Basis is updated in near real-time based on spot market data changes
-* **Non-US Symbols, Forex, ETFs** - The names for there may differ from their common name/symbols. Try searching the native name in [Yahoo finance](https://finance.yahoo.com/) to determine the symbol to use in `ticker`
-* **Terminal fonts** - Font with support for the [`HORIZONTAL LINE SEPARATOR` unicode character](https://www.fileformat.info/info/unicode/char/23af/fontsupport.htm) is required to properly render separators (`--show-separator` option)
+### Frontend
+- **Next.js 16** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first styling
+- **Framer Motion** - Smooth animations
+- **Recharts** - Interactive data visualization
 
-## Integrations
+### Backend & APIs
+- **Grok AI (xAI)** - Tweet analysis and portfolio generation
+- **Yahoo Finance API** - Real-time stock data
+- **Supabase** - Authentication and database
+- **PostgreSQL** - Relational data storage
 
-* [alpaca-ticker-config](https://www.npmjs.com/package/alpaca-ticker-config) - Pull [alpaca.markets](https://alpaca.markets) positions into `.ticker.yaml` from the command line
+### Chrome Extension
+- **Manifest V3** - Modern extension architecture
+- **Content Scripts** - Native X.com integration
+- **Phosphor Icons** - Beautiful, consistent iconography
+- **TwitterChirp Font** - Matches X.com's design system
 
-## Development
+---
 
-Running tests:
-```sh
-go run github.com/onsi/ginkgo/v2/ginkgo -cover ./...
-```
+## 🚀 Getting Started
 
-Linting:
-```sh
-golangci-lint run
-```
+### Web App
 
-## Libraries `ticker` uses
+1. **Visit the app:**
+   ```
+   https://xinvest-com.vercel.app
+   ```
 
-* [bubbletea](https://github.com/charmbracelet/bubbletea) - terminal UI framework
-* [termenv](https://github.com/muesli/termenv) - color and styling for the terminal
-* [term-grid](https://github.com/achannarasappa/term-grid) - grid layout library terminal UIs
+2. **Sign in with Google** (optional for viewing, required for saving)
 
-## Related Tools
+3. **Analyze an account:**
+   - Enter any X username (without @)
+   - Wait for Grok to analyze
+   - Review the generated portfolio
 
-* [tickrs](https://github.com/tarkah/tickrs) - real-time terminal stock ticker with support for graphing, options, and other analysis information
-* [cointop](https://github.com/miguelmota/cointop) - terminal UI tracking cryptocurrencies
+4. **Save to vault:**
+   - Click "Open Vault"
+   - View real-time performance
+   - Share publicly (optional)
+
+### Chrome Extension
+
+1. **Download the extension:**
+   ```bash
+   git clone https://github.com/yourusername/xinvest.com.git
+   cd xinvest.com/dist
+   ```
+
+2. **Load in Chrome:**
+   - Open `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select the `dist` folder
+
+3. **Use on X.com:**
+   - Navigate to https://x.com
+   - Click the "Invest" tab (under Grok)
+   - Analyze profiles without leaving X
+
+---
+
+## 📖 Use Cases
+
+### 🎓 **Learn from Experts**
+Discover what industry leaders might invest in based on their interests:
+- Tech influencers → AI and semiconductor stocks
+- Finance experts → Value and growth picks
+- Crypto advocates → Blockchain and fintech companies
+
+### 💡 **Generate Ideas**
+Use AI analysis to:
+- Find stocks aligned with specific themes
+- Discover companies in emerging sectors
+- Get diversification suggestions
+
+### 🏆 **Compete & Share**
+- Share your best-performing portfolios
+- Climb the public leaderboard
+- Inspire others with your strategy
+- Learn from top performers
+
+### 📊 **Track Performance**
+- Monitor multiple portfolio strategies
+- Compare different approaches
+- See what works over time
+- Adjust based on market conditions
+
+---
+
+## 🔒 Privacy & Security
+
+### Data Protection
+- **Private by Default**: All vaults are private unless you choose to share
+- **Secure Authentication**: Google OAuth via Supabase
+- **No Tweet Storage**: We only analyze, never store tweet content
+- **Encrypted Connections**: All data transmitted over HTTPS
+
+### What We Store
+- ✅ Your portfolio tickers and weights
+- ✅ Performance metrics (PnL)
+- ✅ Public/private vault settings
+- ❌ Your tweets or X account data
+- ❌ Personal financial information
+
+### Sharing Controls
+- **Full Control**: You decide what to share
+- **Anonymous Option**: Share vaults without your X handle
+- **Revoke Anytime**: Make public vaults private instantly
+- **No Tracking**: We don't track your browsing on X.com
+
+---
+
+## 🎨 Design Philosophy
+
+### Seamless Integration
+- **Native Feel**: Matches X.com's design system perfectly
+- **TwitterChirp Font**: Uses X's official typography
+- **Dark Theme**: Consistent with X's aesthetic
+- **Smooth Animations**: Polished, professional experience
+
+### User-First
+- **One-Click Actions**: Minimal friction
+- **Clear Feedback**: Always know what's happening
+- **Error Handling**: Helpful messages, never cryptic errors
+- **Responsive Design**: Works on all screen sizes
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how you can help:
+
+### Report Bugs
+- Open an issue with detailed reproduction steps
+- Include screenshots if applicable
+- Mention your browser/OS version
+
+### Suggest Features
+- Describe the use case
+- Explain the expected behavior
+- Share mockups if you have them
+
+### Submit PRs
+- Fork the repository
+- Create a feature branch
+- Write clear commit messages
+- Add tests if applicable
+- Submit a pull request
+
+---
+
+## 📜 License
+
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+
+### What this means:
+- ✅ Free to use, modify, and distribute
+- ✅ Must disclose source code
+- ✅ Must use same license for derivatives
+- ✅ Commercial use allowed
+
+---
+
+## 🙏 Acknowledgments
+
+### Technologies
+- **xAI** for Grok AI API
+- **Supabase** for backend infrastructure
+- **Vercel** for hosting and deployment
+- **Yahoo Finance** for market data
+
+### Inspiration
+- The X (Twitter) community
+- Open-source finance tools
+- AI-powered investment research
+
+---
+
+## 📞 Contact & Support
+
+### Get Help
+- **Documentation**: Check the `/dist` folder for extension guides
+- **Issues**: Open a GitHub issue
+- **Discussions**: Join our community discussions
+
+### Stay Updated
+- **Website**: https://xinvest-com.vercel.app
+- **GitHub**: Star the repo for updates
+- **X (Twitter)**: Follow for announcements
+
+---
+
+## 🗺️ Roadmap
+
+### Coming Soon
+- [ ] **More AI Models**: Support for Claude, GPT-4, etc.
+- [ ] **Crypto Portfolios**: Analyze for crypto investments
+- [ ] **Backtesting**: See how portfolios would have performed historically
+- [ ] **Social Features**: Follow other investors, comment on vaults
+- [ ] **Mobile App**: Native iOS and Android apps
+- [ ] **API Access**: Programmatic portfolio generation
+
+### Future Ideas
+- [ ] **Paper Trading**: Simulate trades without real money
+- [ ] **Alerts**: Get notified of significant price movements
+- [ ] **Portfolio Rebalancing**: AI-suggested adjustments
+- [ ] **Multi-Account Analysis**: Combine insights from multiple X accounts
+- [ ] **Export Options**: PDF reports, CSV data, etc.
+
+---
+
+## 💎 Why X Invest?
+
+### For Investors
+- **Discover New Ideas**: AI finds stocks you might have missed
+- **Learn from Others**: See what successful investors focus on
+- **Track Performance**: Monitor your strategies over time
+- **Stay Informed**: Real-time data keeps you updated
+
+### For Creators
+- **Share Your Expertise**: Let followers see your investment thesis
+- **Build Credibility**: Prove your strategy with real performance
+- **Engage Community**: Discuss picks with your audience
+- **Monetize Knowledge**: (Coming soon: Premium insights)
+
+### For Researchers
+- **Sentiment Analysis**: See how X discussions correlate with stock picks
+- **Trend Discovery**: Identify emerging investment themes
+- **Performance Studies**: Analyze what strategies work
+- **Data Export**: (Coming soon: API access for research)
+
+---
+
+<div align="center">
+
+**Built with ❤️ for the X community**
+
+[Get Started](https://xinvest-com.vercel.app) • [Install Extension](./dist) • [Report Bug](https://github.com/yourusername/xinvest/issues)
+
+</div>

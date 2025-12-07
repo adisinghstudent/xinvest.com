@@ -32,44 +32,22 @@ export const saveVault = async (vaultData: {
     tickers: string[];
     weights: { [key: string]: number };
     reasoning?: string;
+    is_public?: boolean;
 }) => {
     const user = await getCurrentUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Check if vault exists
-    const { data: existing } = await supabase
+    // Always insert a new vault (don't update existing)
+    const { data, error } = await supabase
         .from('vaults')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1)
+        .insert({
+            user_id: user.id,
+            ...vaultData,
+        })
+        .select()
         .single();
 
-    if (existing) {
-        // Update existing vault
-        const { data, error } = await supabase
-            .from('vaults')
-            .update({
-                ...vaultData,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id)
-            .select()
-            .single();
-
-        return { data, error };
-    } else {
-        // Insert new vault
-        const { data, error } = await supabase
-            .from('vaults')
-            .insert({
-                user_id: user.id,
-                ...vaultData,
-            })
-            .select()
-            .single();
-
-        return { data, error };
-    }
+    return { data, error };
 };
 
 export const getUserVaults = async () => {
@@ -85,19 +63,20 @@ export const getUserVaults = async () => {
     return { data, error };
 };
 
-// Toggle vault public sharing
-export const toggleVaultPublic = async (isPublic: boolean) => {
+// Toggle vault public sharing for a specific vault
+export const toggleVaultPublic = async (vaultId: string, isPublic: boolean) => {
     const user = await getCurrentUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Update all vaults for this user
     const { data, error } = await supabase
         .from('vaults')
         .update({ is_public: isPublic })
+        .eq('id', vaultId)
         .eq('user_id', user.id)
-        .select();
+        .select()
+        .single();
 
-    return { data: data?.[0], error };
+    return { data, error };
 };
 
 // Get public leaderboard
