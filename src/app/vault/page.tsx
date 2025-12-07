@@ -118,6 +118,13 @@ export default function VaultPage() {
         }
       } else {
         // Create new vault with public status
+        console.log('Creating new vault with data:', {
+          twitter_handle: savedHandle,
+          tickers,
+          weights: portfolioWeights,
+          is_public: newPublicState
+        });
+
         const { data, error } = await saveVault({
           twitter_handle: savedHandle || undefined,
           tickers,
@@ -128,9 +135,11 @@ export default function VaultPage() {
 
         if (error) {
           console.error('Error creating vault:', error);
-          setError('Failed to create vault');
+          setError(`Failed to create vault: ${error.message}`);
           return;
         }
+
+        console.log('Vault created successfully:', data);
 
         if (data) {
           currentVaultId = data.id;
@@ -142,7 +151,7 @@ export default function VaultPage() {
       // If making public, calculate and update PnL
       if (newPublicState && currentVaultId) {
         try {
-          console.log('Calculating PnL for vault...');
+          console.log(`Calculating PnL for vault ${currentVaultId}...`);
           const pnlRes = await fetch('/api/update-pnl', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -151,9 +160,10 @@ export default function VaultPage() {
 
           if (pnlRes.ok) {
             const pnlData = await pnlRes.json();
-            console.log('PnL calculated:', pnlData.pnl);
+            console.log('PnL calculated successfully:', pnlData.pnl);
           } else {
-            console.warn('Failed to calculate PnL, but vault is still public');
+            const errorText = await pnlRes.text();
+            console.warn('Failed to calculate PnL:', errorText);
           }
         } catch (pnlError) {
           console.error('Error calculating PnL:', pnlError);
