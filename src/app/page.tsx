@@ -4,22 +4,44 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Twitter, Loader2, Edit, Trash2, Plus, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { supabase, signInWithGoogle, saveVault, getCurrentUser } from '@/lib/supabase';
 
 export default function Home() {
   const [handle, setHandle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [tickers, setTickers] = useState<string[]>([]);
+  const [portfolioWeights, setPortfolioWeights] = useState<{ [ticker: string]: number }>({});
   const [reasoning, setReasoning] = useState<string>('');
   const [error, setError] = useState('');
   const router = useRouter();
 
   useEffect(() => {
+    // Check auth state
+    getCurrentUser().then(setUser);
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     const saved = localStorage.getItem('vaultTickers');
+    const savedWeights = localStorage.getItem('vaultWeights');
+
     if (saved) {
       try {
         const parsedTickers = JSON.parse(saved);
         if (Array.isArray(parsedTickers) && parsedTickers.length > 0) {
           setTickers(parsedTickers);
+        }
+
+        if (savedWeights) {
+          const parsedWeights = JSON.parse(savedWeights);
+          setPortfolioWeights(parsedWeights);
         }
       } catch (e) {
         console.error('Error parsing saved tickers:', e);
@@ -50,6 +72,16 @@ export default function Home() {
 
       setTickers(analyzeData.tickers || []);
       setReasoning(analyzeData.reasoning || 'No reasoning provided.');
+
+      // Save and set portfolio weights if available
+      if (analyzeData.portfolio && Array.isArray(analyzeData.portfolio)) {
+        const weights: { [ticker: string]: number } = {};
+        analyzeData.portfolio.forEach((item: any) => {
+          weights[item.ticker] = item.weight;
+        });
+        setPortfolioWeights(weights);
+        localStorage.setItem('vaultWeights', JSON.stringify(weights));
+      }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -57,25 +89,98 @@ export default function Home() {
     }
   };
 
-  const handleSaveAndOpenVault = () => {
-    if (tickers.length > 0) {
+  const handleSaveAndOpenVault = async () => {
+    if (tickers.length === 0) return;
+
+    try {
+      // Check if user is authenticated
+      if (!user) {
+        // Trigger Google OAuth popup
+        console.log('Triggering Google sign-in...');
+
+        const { error: authError } = await signInWithGoogle();
+
+        if (authError) {
+          console.error('Auth error details:', authError);
+          setError(`Failed to sign in with Google: ${authError.message || 'Unknown error'}`);
+          return;
+        }
+
+        // Save to localStorage so it's available after auth redirect
+        localStorage.setItem('vaultTickers', JSON.stringify(tickers));
+        localStorage.setItem('vaultWeights', JSON.stringify(portfolioWeights));
+        localStorage.setItem('vaultHandle', handle);
+        localStorage.setItem('vaultReasoning', reasoning);
+
+        // OAuth will redirect to /vault after successful auth
+        return;
+      }
+
+      // Save to Supabase
+      const { error: saveError } = await saveVault({
+        twitter_handle: handle,
+        tickers,
+        weights: portfolioWeights,
+        reasoning,
+      });
+
+      if (saveError) {
+        console.error('Error saving vault:', saveError);
+        setError('Failed to save vault. Please try again.');
+        return;
+      }
+
+      // Also save to localStorage for quick access
       localStorage.setItem('vaultTickers', JSON.stringify(tickers));
+      localStorage.setItem('vaultWeights', JSON.stringify(portfolioWeights));
+
       router.push('/vault');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
     }
   };
 
   const updateTicker = (index: number, value: string) => {
+    const oldTicker = tickers[index];
     const newTickers = [...tickers];
     newTickers[index] = value.toUpperCase();
     setTickers(newTickers);
+
+    // Update weight key if ticker changed
+    if (oldTicker && oldTicker !== value.toUpperCase()) {
+      const newWeights = { ...portfolioWeights };
+      if (newWeights[oldTicker]) {
+        newWeights[value.toUpperCase()] = newWeights[oldTicker];
+        delete newWeights[oldTicker];
+        setPortfolioWeights(newWeights);
+      }
+    }
+  };
+
+  const updateWeight = (ticker: string, weight: number) => {
+    const newWeights = { ...portfolioWeights };
+    newWeights[ticker] = Math.max(0, Math.min(100, weight)); // Clamp between 0-100
+    setPortfolioWeights(newWeights);
   };
 
   const deleteTicker = (index: number) => {
+    const tickerToDelete = tickers[index];
     setTickers(tickers.filter((_, i) => i !== index));
+
+    // Remove weight for deleted ticker
+    if (tickerToDelete) {
+      const newWeights = { ...portfolioWeights };
+      delete newWeights[tickerToDelete];
+      setPortfolioWeights(newWeights);
+    }
   };
 
   const addTicker = () => {
     setTickers([...tickers, '']);
+    // New tickers get equal weight by default
+    const equalWeight = 100 / (tickers.length + 1);
+    const newWeights = { ...portfolioWeights };
+    setPortfolioWeights(newWeights);
   };
 
   return (
@@ -166,11 +271,11 @@ export default function Home() {
             <div className="space-y-6">
               <div className="flex items-center justify-center gap-2 text-[#1D9BF0]">
                 <Edit className="w-5 h-5" />
-                <span className="font-medium">Edit Your Portfolio Tickers</span>
+                <span className="font-medium">Edit Your Portfolio Tickers & Weights</span>
               </div>
               <div className="space-y-4">
                 {tickers.map((ticker, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-[#0F0F0F] border border-[#333] rounded-lg p-4 hover:border-[#1D9BF0] transition-all">
+                  <div key={index} className="flex items-center gap-3 bg-[#0F0F0F] border border-[#333] rounded-lg p-4 hover:border-[#1D9BF0] transition-all">
                     <input
                       type="text"
                       value={ticker}
@@ -178,6 +283,20 @@ export default function Home() {
                       placeholder="Enter ticker (e.g., AAPL)"
                       className="flex-1 bg-transparent text-white border-none outline-none text-lg"
                     />
+                    {ticker && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={portfolioWeights[ticker] || 0}
+                          onChange={(e) => updateWeight(ticker, parseFloat(e.target.value) || 0)}
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          className="w-20 bg-[#1D9BF0]/10 border border-[#1D9BF0]/30 text-[#1D9BF0] rounded-lg px-3 py-2 text-center font-semibold focus:outline-none focus:border-[#1D9BF0]"
+                        />
+                        <span className="text-[#1D9BF0] font-semibold">%</span>
+                      </div>
+                    )}
                     <button
                       onClick={() => deleteTicker(index)}
                       className="text-red-500 hover:text-red-400 transition-colors"
@@ -186,6 +305,25 @@ export default function Home() {
                     </button>
                   </div>
                 ))}
+
+                {/* Total Weight Indicator */}
+                {tickers.length > 0 && Object.keys(portfolioWeights).length > 0 && (
+                  <div className="flex items-center justify-between bg-[#0F0F0F] border border-[#333] rounded-lg p-4">
+                    <span className="text-gray-400">Total Portfolio Weight:</span>
+                    {(() => {
+                      const totalWeight = Object.values(portfolioWeights).reduce((sum, w) => sum + w, 0);
+                      const isValid = Math.abs(totalWeight - 100) < 1;
+                      const isClose = Math.abs(totalWeight - 100) < 5;
+                      return (
+                        <span className={`text-lg font-bold ${isValid ? 'text-green-400' : isClose ? 'text-yellow-400' : 'text-red-400'
+                          }`}>
+                          {totalWeight.toFixed(1)}%
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <button
                   onClick={addTicker}
                   className="w-full bg-[#0F0F0F] border border-[#333] rounded-lg p-4 text-[#1D9BF0] hover:bg-[#1D9BF0] hover:text-black transition-colors flex items-center justify-center gap-2"

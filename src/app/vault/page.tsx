@@ -8,6 +8,7 @@ import Link from 'next/link';
 
 export default function VaultPage() {
   const [tickers, setTickers] = useState<string[]>([]);
+  const [portfolioWeights, setPortfolioWeights] = useState<{ [ticker: string]: number }>({});
   const [tickerData, setTickerData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -15,11 +16,19 @@ export default function VaultPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem('vaultTickers');
+    const savedWeights = localStorage.getItem('vaultWeights');
+
     if (saved) {
       try {
         const parsedTickers = JSON.parse(saved);
         if (Array.isArray(parsedTickers) && parsedTickers.length > 0) {
           setTickers(parsedTickers);
+        }
+
+        // Load weights if available
+        if (savedWeights) {
+          const parsedWeights = JSON.parse(savedWeights);
+          setPortfolioWeights(parsedWeights);
         }
       } catch (e) {
         console.error('Error parsing saved tickers:', e);
@@ -77,6 +86,56 @@ export default function VaultPage() {
     };
   };
 
+  // Calculate overall portfolio performance using WEIGHTED averaging
+  const getOverallPortfolioData = () => {
+    if (!tickerData || tickerData.length === 0) return null;
+
+    // Filter out tickers with no data
+    const validTickers = tickerData.filter(t => t.chartData && t.chartData.length > 0);
+    if (validTickers.length === 0) return null;
+
+    // Check if we have weights, otherwise use equal weights
+    const hasWeights = Object.keys(portfolioWeights).length > 0;
+    const equalWeight = 100 / validTickers.length;
+
+    // Get all unique dates across all tickers
+    const allDates = new Set<string>();
+    validTickers.forEach(ticker => {
+      ticker.chartData.forEach((point: any) => {
+        allDates.add(point.date);
+      });
+    });
+
+    // Sort dates
+    const sortedDates = Array.from(allDates).sort();
+
+    // For each date, calculate the WEIGHTED average value across all tickers
+    const portfolioData = sortedDates.map(date => {
+      let weightedSum = 0;
+      let totalWeight = 0;
+
+      validTickers.forEach(ticker => {
+        const dataPoint = ticker.chartData.find((p: any) => p.date === date);
+        if (dataPoint) {
+          // Use AI-generated weight or equal weight
+          const weight = hasWeights ? (portfolioWeights[ticker.ticker] || equalWeight) : equalWeight;
+          weightedSum += dataPoint.value * (weight / 100);
+          totalWeight += weight;
+        }
+      });
+
+      return {
+        date,
+        value: totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0
+      };
+    }).filter(point => point.value > 0);
+
+    return portfolioData;
+  };
+
+  const overallPortfolioData = getOverallPortfolioData();
+  const overallPerformance = overallPortfolioData ? getPerformance(overallPortfolioData) : null;
+
   return (
     <main className="min-h-screen bg-black text-white p-4 md:p-8 selection:bg-[#1D9BF0] selection:text-white">
       <div className="w-full max-w-7xl mx-auto space-y-8">
@@ -123,8 +182,8 @@ export default function VaultPage() {
                   key={range}
                   onClick={() => setTimeRange(range)}
                   className={`px-4 py-2 rounded-lg font-medium transition-all ${timeRange === range
-                      ? 'bg-[#1D9BF0] text-white'
-                      : 'bg-[#0F0F0F] border border-[#333] text-gray-400 hover:border-[#1D9BF0] hover:text-white'
+                    ? 'bg-[#1D9BF0] text-white'
+                    : 'bg-[#0F0F0F] border border-[#333] text-gray-400 hover:border-[#1D9BF0] hover:text-white'
                     }`}
                 >
                   {range}
@@ -133,6 +192,45 @@ export default function VaultPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Overall Portfolio Performance */}
+        {!loading && overallPortfolioData && overallPerformance && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-br from-[#1D9BF0]/10 to-[#0F0F0F] border-2 border-[#1D9BF0] rounded-2xl p-8"
+          >
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-3xl font-bold text-white">Portfolio ETF</h2>
+                    <span className="bg-[#1D9BF0]/20 text-[#1D9BF0] px-3 py-1 rounded-full text-sm font-medium">
+                      {tickers.length} Stocks
+                    </span>
+                  </div>
+                  <p className="text-gray-400">Average performance across all holdings</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-400 mb-1">Average Price</p>
+                  <p className="text-2xl font-bold text-white">
+                    ${overallPerformance.lastValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className={`text-xl font-semibold mt-1 ${overallPerformance.isPositive ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                    {overallPerformance.isPositive ? '+' : ''}{overallPerformance.change}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Chart */}
+              <div className="bg-black/30 rounded-xl p-4">
+                <PortfolioChart data={overallPortfolioData} />
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Loading State */}
         {loading && (
@@ -160,6 +258,18 @@ export default function VaultPage() {
           </motion.div>
         )}
 
+        {/* Individual Stocks Section Header */}
+        {!loading && tickerData.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="border-t border-[#333] pt-8"
+          >
+            <h2 className="text-2xl font-bold text-white mb-2">Individual Holdings</h2>
+            <p className="text-gray-400">Detailed performance for each stock</p>
+          </motion.div>
+        )}
+
         {/* Tickers Grid */}
         {!loading && tickerData.length > 0 && (
           <motion.div
@@ -181,10 +291,17 @@ export default function VaultPage() {
                   {/* Ticker Header */}
                   <div className="flex items-start justify-between mb-6">
                     <div>
-                      <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                        {ticker.ticker}
-                        <TrendingUp className="w-5 h-5 text-[#1D9BF0]" />
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                          {ticker.ticker}
+                          <TrendingUp className="w-5 h-5 text-[#1D9BF0]" />
+                        </h3>
+                        {portfolioWeights[ticker.ticker] && (
+                          <span className="bg-[#1D9BF0]/20 text-[#1D9BF0] px-2 py-1 rounded-md text-xs font-semibold">
+                            {portfolioWeights[ticker.ticker].toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
                       {performance && (
                         <div className="mt-2 space-y-1">
                           <p className="text-sm text-gray-400">

@@ -54,33 +54,127 @@ export async function POST(request: Request) {
             messages: [
                 {
                     role: 'system',
-                    content: `You are an expert financial advisor. Quickly analyze the following last 3 tweets from a user and identify the top 5 stocks they are talking about or related to.
-          Return ONLY a JSON object with:
-          - "tickers": an array of up to 5 string tickers (e.g., ["AAPL", "TSLA", ...])
-          - "reasoning": a string explaining the analysis.
-          Do not include markdown formatting or additional explanations outside the JSON.`
+                    content: `You are a creative financial advisor and stock picker. Your job is to ALWAYS recommend exactly 10 stocks based on a user's personality, interests, and tweet content, WITH PORTFOLIO WEIGHTS.
+
+IMPORTANT RULES:
+1. You MUST return exactly 10 stock tickers with weights, no matter what
+2. If tweets mention stocks directly, give those higher weights based on sentiment/conviction
+3. If tweets don't mention stocks, infer from their interests and assign weights based on relevance
+4. Weights should reflect: sentiment strength, frequency of mentions, conviction level, and relevance to their interests
+5. ALL weights MUST sum to exactly 100 (representing 100% of portfolio)
+6. Higher weights (15-20%) for stocks they're most bullish on or most relevant to their interests
+7. Lower weights (5-8%) for diversification picks
+8. Return ONLY valid US stock tickers (e.g., AAPL, TSLA, NVDA, etc.)
+
+Return ONLY a JSON object with:
+- "portfolio": an array of EXACTLY 10 objects, each with:
+  - "ticker": string (e.g., "AAPL")
+  - "weight": number (percentage, e.g., 15 for 15%)
+- "reasoning": a 2-3 sentence string explaining the portfolio allocation strategy
+
+Example format:
+{
+  "portfolio": [
+    {"ticker": "AAPL", "weight": 20},
+    {"ticker": "TSLA", "weight": 15},
+    ...
+  ],
+  "reasoning": "Allocated higher weights to AI and tech stocks based on strong bullish sentiment in tweets."
+}
+
+CRITICAL: Weights MUST sum to 100. Do not include markdown formatting.`
                 },
                 {
                     role: 'user',
-                    content: `Here are the last 3 tweets from @${handle}:\n\n${tweets.join('\n---\n')}`
+                    content: `Analyze these tweets from @${handle} and create a weighted portfolio of 10 stocks:\n\n${tweets.join('\n---\n')}`
                 }
             ],
-            temperature: 0.7,
+            temperature: 0.8,
         });
 
         const content = completion.choices[0].message.content;
-        let result;
+        let result: any;
         try {
             // Clean up potential markdown code blocks if Grok adds them
             const cleanContent = content?.replace(/```json/g, '').replace(/```/g, '').trim();
-            result = JSON.parse(cleanContent || '{"tickers": [], "reasoning": "Fallback: Unable to analyze tweets."}');
+            result = JSON.parse(cleanContent || '{}');
+
+            // Validate that we have portfolio data
+            if (!result.portfolio || !Array.isArray(result.portfolio) || result.portfolio.length === 0) {
+                throw new Error('No portfolio in response');
+            }
+
+            // Validate weights sum to 100 (allow small rounding errors)
+            const totalWeight = result.portfolio.reduce((sum: number, item: any) => sum + (item.weight || 0), 0);
+            if (Math.abs(totalWeight - 100) > 1) {
+                console.warn(`Weights sum to ${totalWeight}, normalizing to 100`);
+                // Normalize weights to sum to 100
+                result.portfolio = result.portfolio.map((item: any) => ({
+                    ...item,
+                    weight: (item.weight / totalWeight) * 100
+                }));
+            }
+
+            // Extract tickers for backward compatibility
+            result.tickers = result.portfolio.map((item: any) => item.ticker);
         } catch (e) {
-            console.error('Failed to parse Grok response:', content);
-            // Fallback if parsing fails
-            result = {
-                tickers: ['SPY', 'QQQ', 'AAPL', 'MSFT', 'TSLA'],
-                reasoning: 'Fallback: Parsing error occurred. Using default diversified portfolio.'
-            };
+            console.error('Failed to parse Grok response, trying again with simpler prompt:', content);
+
+            // Make a second attempt with a more forceful prompt
+            const retryCompletion = await client.chat.completions.create({
+                model: 'grok-code-fast-1',
+                messages: [
+                    {
+                        role: 'system',
+                        content: `You MUST pick exactly 10 US stock tickers with weights (summing to 100). Return ONLY this format:
+{"portfolio": [{"ticker": "AAPL", "weight": 15}, ...], "reasoning": "Brief explanation"}`
+                    },
+                    {
+                        role: 'user',
+                        content: `User @${handle} tweets: ${tweets.slice(0, 3).join(' | ')}. Create weighted portfolio.`
+                    }
+                ],
+                temperature: 0.9,
+            });
+
+            try {
+                const retryContent = retryCompletion.choices[0].message.content;
+                const cleanRetry = retryContent?.replace(/```json/g, '').replace(/```/g, '').trim();
+                result = JSON.parse(cleanRetry || '{}');
+
+                // If still no portfolio, create equal weights
+                if (!result.portfolio || !Array.isArray(result.portfolio) || result.portfolio.length === 0) {
+                    throw new Error('Still no portfolio');
+                }
+
+                result.tickers = result.portfolio.map((item: any) => item.ticker);
+            } catch (retryError) {
+                console.error('Retry also failed, using emergency AI generation');
+                // Last resort: Ask AI for tickers and assign equal weights
+                const emergencyCompletion = await client.chat.completions.create({
+                    model: 'grok-code-fast-1',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `Give me 10 popular US stock tickers as a JSON array. Format: ["AAPL", "MSFT", ...]`
+                        }
+                    ],
+                    temperature: 0.5,
+                });
+
+                const emergencyContent = emergencyCompletion.choices[0].message.content;
+                const tickersArray = JSON.parse(emergencyContent?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]');
+
+                // Create equal-weighted portfolio
+                result = {
+                    portfolio: tickersArray.map((ticker: string) => ({
+                        ticker,
+                        weight: 10 // Equal weight: 100% / 10 stocks
+                    })),
+                    tickers: tickersArray,
+                    reasoning: `Generated a diversified equal-weighted portfolio based on current market trends.`
+                };
+            }
         }
 
         // Store/Update in Supabase
