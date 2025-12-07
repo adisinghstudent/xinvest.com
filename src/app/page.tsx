@@ -1,65 +1,177 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Search, Twitter, Loader2 } from "lucide-react";
+
 
 export default function Home() {
+  const [handle, setHandle] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"idle" | "analyzing" | "done">("idle");
+  const [tickers, setTickers] = useState<string[]>([]);
+  const [reasoning, setReasoning] = useState<string>("");
+  const [tweets, setTweets] = useState<string[]>([]);
+  const [error, setError] = useState("");
+
+  const handleAnalyze = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!handle) return;
+
+    setLoading(true);
+    setError("");
+    setStep("analyzing");
+    setTickers([]);
+    setReasoning("");
+    setTweets([]);
+
+    try {
+      // 1. Analyze Tweets
+      const analyzeRes = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle }),
+      });
+
+      if (!analyzeRes.ok) throw new Error("Failed to analyze tweets");
+      const analyzeData = await analyzeRes.json();
+
+      if (analyzeData.error) throw new Error(analyzeData.error);
+
+      setTickers(analyzeData.tickers);
+      setReasoning(analyzeData.reasoning || "No reasoning provided.");
+      setTweets(analyzeData.tweets || []);
+      setStep("done");
+
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+      setStep("idle");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 md:p-24 bg-black text-white selection:bg-[#1D9BF0] selection:text-white">
+      <div className="w-full max-w-4xl space-y-12">
+
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center space-y-4"
+        >
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+            X Invest
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
+            Let Grok analyze your X (Twitter) personality and build your perfect stock portfolio.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        </motion.div>
+
+        {/* Input Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="w-full max-w-md mx-auto"
+        >
+          <form onSubmit={handleAnalyze} className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <span className="text-gray-500 text-lg">@</span>
+            </div>
+            <input
+              type="text"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+              placeholder="elonmusk"
+              className="w-full bg-[#16181C] border border-[#333] text-white text-lg rounded-full py-4 pl-10 pr-14 focus:outline-none focus:border-[#1D9BF0] focus:ring-1 focus:ring-[#1D9BF0] transition-all placeholder:text-gray-600"
+              disabled={loading}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <button
+              type="submit"
+              disabled={loading || !handle}
+              className="absolute right-2 top-2 bottom-2 bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white rounded-full px-6 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+            </button>
+          </form>
+          {error && (
+            <p className="text-red-500 text-center mt-4">{error}</p>
+          )}
+        </motion.div>
+
+        {/* Loading State */}
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center text-gray-400 space-y-2"
           >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <p>Grok is reading the last 20 tweets...</p>
+            <div className="h-1 w-64 bg-[#333] rounded-full mx-auto overflow-hidden">
+              <div className="h-full bg-[#1D9BF0] w-1/3 animate-progress"></div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Results Section */}
+        {step === "done" && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-12"
+          >
+            {/* Tweets Section */}
+            <div className="bg-[#16181C] border border-[#333] rounded-2xl p-6 md:p-8">
+              <h2 className="text-2xl font-bold mb-4">Tweets Analyzed</h2>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {tweets.map((tweet, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="bg-[#0F0F0F] p-4 rounded-lg"
+                  >
+                    <p className="text-gray-300">{tweet}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tickers Grid */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-2 text-[#1D9BF0]">
+                <Twitter className="w-5 h-5" />
+                <span className="font-medium">Grok's Picks for @{handle}</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {tickers.map((ticker, i) => (
+                  <motion.div
+                    key={ticker}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="bg-[#16181C] border border-[#333] rounded-xl p-4 text-center hover:border-[#1D9BF0] transition-colors cursor-default"
+                  >
+                    <span className="text-xl font-bold block">{ticker}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* AI Reasoning */}
+            <div className="bg-[#16181C] border border-[#333] rounded-2xl p-6 md:p-8">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 text-[#1D9BF0]">🤖</span>
+                Grok's Analysis
+              </h2>
+              <p className="text-gray-300 leading-relaxed">{reasoning}</p>
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </main>
   );
 }
