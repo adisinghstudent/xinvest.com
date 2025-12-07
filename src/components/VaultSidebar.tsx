@@ -23,13 +23,18 @@ interface VaultSidebarProps {
 
 export default function VaultSidebar({ isOpen, onClose }: VaultSidebarProps) {
   const router = useRouter();
-  const [vaultTickers, setVaultTickers] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('vaultTickers');
-      return saved ? JSON.parse(saved) : ['BTC', 'ETH'];
+  const [vaultTickers, setVaultTickers] = useState<string[]>(['BTC', 'ETH']);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('vaultTickers');
+    if (saved) {
+      try {
+        setVaultTickers(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse vaultTickers', e);
+      }
     }
-    return ['BTC', 'ETH'];
-  });
+  }, []);
   const [stockData, setStockData] = useState<StockData[]>([]);
   const [newTicker, setNewTicker] = useState('');
   const [loading, setLoading] = useState(false);

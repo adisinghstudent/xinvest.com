@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import Loading from "@/components/Loading";
 import "./globals.css";
+import { Providers } from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,9 +34,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black`}
       >
-        <Suspense fallback={<Loading />}>
-          {children}
-        </Suspense>
+        <Providers>
+          <Suspense fallback={<Loading />}>
+            {children}
+          </Suspense>
+        </Providers>
       </body>
     </html>
   );

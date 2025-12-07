@@ -7,7 +7,10 @@ import { PortfolioChart } from '@/components/PortfolioChart';
 import Link from 'next/link';
 import { supabase, saveVault, getCurrentUser, toggleVaultPublic, signInWithGoogle } from '@/lib/supabase';
 import { Toast } from '@/components/Toast';
-
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { VaultRegistryABI, VAULT_REGISTRY_ADDRESS } from '@/lib/abi';
+import { parseEventLogs } from 'viem';
 export default function VaultPage() {
   const [tickers, setTickers] = useState<string[]>([]);
   const [portfolioWeights, setPortfolioWeights] = useState<{ [ticker: string]: number }>({});
@@ -17,6 +20,30 @@ export default function VaultPage() {
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y'>('1Y');
   const [isPublic, setIsPublic] = useState(false);
   const [vaultId, setVaultId] = useState<string | null>(null);
+  const [onChainVaultId, setOnChainVaultId] = useState<string | null>(null);
+
+  // Web3 Hooks
+  const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
+  const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } = useWaitForTransactionReceipt({ hash: txHash });
+
+  useEffect(() => {
+    if (isConfirmed && receipt) {
+      const logs = parseEventLogs({
+        abi: VaultRegistryABI,
+        eventName: 'VaultCreated',
+        logs: receipt.logs,
+      });
+
+      if (logs.length > 0) {
+        const newVaultId = logs[0].args.vaultId.toString();
+        setOnChainVaultId(newVaultId);
+        console.log('On-chain Vault Created:', newVaultId);
+        // Ideally update Supabase here
+      }
+    }
+  }, [isConfirmed, receipt]);
 
   useEffect(() => {
     const saved = localStorage.getItem('vaultTickers');
@@ -207,6 +234,47 @@ export default function VaultPage() {
       }
 
       setIsPublic(newPublicState);
+
+      // On-chain interaction
+      if (isConnected && address && newPublicState) {
+        try {
+          console.log('Initiating on-chain vault creation...');
+          const assetSymbols = tickersToSave;
+          let targetWeightsBps: number[] = [];
+
+          if (Object.keys(weightsToSave).length > 0) {
+            targetWeightsBps = assetSymbols.map(t => Math.round((weightsToSave[t] || 0) * 100));
+          } else {
+            const equalWeight = Math.floor(10000 / assetSymbols.length);
+            targetWeightsBps = assetSymbols.map(() => equalWeight);
+          }
+
+          // Fix rounding to ensure sum is 10000
+          const currentSum = targetWeightsBps.reduce((a, b) => a + b, 0);
+          if (currentSum !== 10000) {
+            targetWeightsBps[0] += (10000 - currentSum);
+          }
+
+          const hash = await writeContractAsync({
+            address: VAULT_REGISTRY_ADDRESS,
+            abi: VaultRegistryABI,
+            functionName: 'createVault',
+            args: [
+              savedHandle || 'Anonymous',
+              0, // Personal
+              assetSymbols,
+              targetWeightsBps
+            ]
+          });
+          setTxHash(hash);
+          console.log('Transaction sent:', hash);
+        } catch (e) {
+          console.error("Contract error:", e);
+          setError('Failed to create on-chain vault');
+        }
+      }
+
+
       alert(newPublicState ? '✅ Vault is now public! Calculating performance...' : '❌ Vault is now private.');
     } catch (err: any) {
       setError(err.message || 'Failed to share vault');
@@ -304,6 +372,17 @@ export default function VaultPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {onChainVaultId && (
+                <a
+                  href={`https://sepolia.arbiscan.io/address/${VAULT_REGISTRY_ADDRESS}`} // Ideally link to the specific log or just the contract
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-500/20 text-blue-400 border border-blue-500/50 px-3 py-1 rounded-full text-sm font-medium hover:bg-blue-500/30 transition-colors"
+                >
+                  Onchain strategy #{onChainVaultId}
+                </a>
+              )}
+              <ConnectButton />
               <button
                 onClick={() => handleShareVault()}
                 className={`border rounded-lg px-6 py-3 font-medium transition-all flex items-center gap-2 ${isPublic
