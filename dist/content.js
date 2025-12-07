@@ -39,12 +39,14 @@
       const tabContent = investTab.querySelector('div[dir="ltr"]');
       if (tabContent) {
         // Find and update the icon
-        const iconContainer = tabContent.querySelector('svg').parentElement;
-        iconContainer.innerHTML = `
-          <svg viewBox="0 0 256 256" width="26.25" height="26.25" fill="currentColor">
-            <path d="M240,56v64a8,8,0,0,1-16,0V75.31l-82.34,82.35a8,8,0,0,1-11.32,0L96,123.31,29.66,189.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0L136,140.69,212.69,64H168a8,8,0,0,1,0-16h64A8,8,0,0,1,240,56Z"></path>
-          </svg>
-        `;
+        const iconContainer = tabContent.querySelector('svg')?.parentElement;
+        if (iconContainer) {
+          iconContainer.innerHTML = `
+            <svg viewBox="0 0 256 256" width="26.25" height="26.25" fill="currentColor">
+              <path d="M240,56v64a8,8,0,0,1-16,0V75.31l-82.34,82.35a8,8,0,0,1-11.32,0L96,123.31,29.66,189.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0L136,140.69,212.69,64H168a8,8,0,0,1,0-16h64A8,8,0,0,1,240,56Z"></path>
+            </svg>
+          `;
+        }
 
         // Update the text
         const textSpan = tabContent.querySelector('span');

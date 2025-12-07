@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, TrendingUp, Calendar, RefreshCw, ArrowLeft, Share2 } from 'lucide-react';
+import { Loader2, TrendingUp, Calendar, RefreshCw, ArrowLeft, Share2, Copy, Check, Twitter } from 'lucide-react';
 import { PortfolioChart } from '@/components/PortfolioChart';
 import Link from 'next/link';
 import { supabase, saveVault, getCurrentUser, toggleVaultPublic, signInWithGoogle } from '@/lib/supabase';
@@ -18,11 +18,64 @@ export default function VaultPage() {
   const [isPublic, setIsPublic] = useState(false);
   const [vaultId, setVaultId] = useState<string | null>(null);
 
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [vaultOwner, setVaultOwner] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    if (!vaultId) return;
+    const url = `${window.location.origin}/vault?id=${vaultId}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    if (id) {
+      // Load shared vault
+      setIsReadOnly(true);
+      setVaultId(id);
+      loadSharedVault(id);
+    } else {
+      // Load local vault
+      loadLocalVault();
+    }
+  }, []);
+
+  const loadSharedVault = async (id: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vaults')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        if (!data.is_public) {
+          setError('This vault is private');
+          return;
+        }
+        setTickers(data.tickers || []);
+        setPortfolioWeights(data.weights || {});
+        setVaultOwner(data.twitter_handle);
+        setIsPublic(data.is_public);
+      }
+    } catch (err: any) {
+      setError('Failed to load shared vault');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLocalVault = () => {
     const saved = localStorage.getItem('vaultTickers');
     const savedWeights = localStorage.getItem('vaultWeights');
-    const savedHandle = localStorage.getItem('vaultHandle');
-    const savedReasoning = localStorage.getItem('vaultReasoning');
     const savedVaultId = localStorage.getItem('currentVaultId');
 
     if (savedVaultId) {
@@ -36,7 +89,6 @@ export default function VaultPage() {
           setTickers(parsedTickers);
         }
 
-        // Load weights if available
         if (savedWeights) {
           const parsedWeights = JSON.parse(savedWeights);
           setPortfolioWeights(parsedWeights);
@@ -45,7 +97,7 @@ export default function VaultPage() {
         console.error('Error parsing saved tickers:', e);
       }
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (tickers.length > 0) {
@@ -291,37 +343,62 @@ export default function VaultPage() {
               <Link href="/">
                 <button className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-4 py-2 font-medium transition-all flex items-center gap-2">
                   <ArrowLeft className="w-4 h-4" />
-                  Back
+                  {isReadOnly ? 'Home' : 'Back'}
                 </button>
               </Link>
               <div>
                 <h1 className="text-4xl md:text-6xl font-bold tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
-                  Vault
+                  {isReadOnly && vaultOwner ? `${vaultOwner}'s Vault` : 'Vault'}
                 </h1>
                 <p className="text-gray-400 text-lg mt-2">
-                  Track your portfolio performance powered by Yahoo Finance
+                  Track {isReadOnly ? 'this' : 'your'} portfolio performance powered by Yahoo Finance
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleShareVault()}
-                className={`border rounded-lg px-6 py-3 font-medium transition-all flex items-center gap-2 ${isPublic
-                  ? 'bg-[#1D9BF0] border-[#1D9BF0] text-white hover:bg-[#1A8CD8]'
-                  : 'bg-[#0F0F0F] border-[#333] text-white hover:border-[#1D9BF0]'
-                  }`}
-              >
-                <Share2 className="w-5 h-5" />
-                {isPublic ? 'Public' : 'Share Vault'}
-              </button>
-              <button
-                onClick={fetchTickerData}
-                disabled={loading}
-                className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-6 py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
+              {isReadOnly && vaultOwner && (
+                <a
+                  href={`https://x.com/${vaultOwner.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-4 py-2 font-medium transition-all flex items-center gap-2"
+                >
+                  <Twitter className="w-4 h-4" />
+                  @{vaultOwner.replace('@', '')}
+                </a>
+              )}
+
+              {!isReadOnly && (
+                <>
+                  <button
+                    onClick={() => handleShareVault()}
+                    className={`border rounded-lg px-6 py-3 font-medium transition-all flex items-center gap-2 ${isPublic
+                      ? 'bg-[#1D9BF0] border-[#1D9BF0] text-white hover:bg-[#1A8CD8]'
+                      : 'bg-[#0F0F0F] border-[#333] text-white hover:border-[#1D9BF0]'
+                      }`}
+                  >
+                    <Share2 className="w-5 h-5" />
+                    {isPublic ? 'Public' : 'Share Vault'}
+                  </button>
+                  {isPublic && (
+                    <button
+                      onClick={handleCopyLink}
+                      className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-4 py-3 font-medium transition-all flex items-center gap-2"
+                      title="Copy Link"
+                    >
+                      {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+                    </button>
+                  )}
+                  <button
+                    onClick={fetchTickerData}
+                    disabled={loading}
+                    className="bg-[#0F0F0F] border border-[#333] hover:border-[#1D9BF0] text-white rounded-lg px-6 py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Twitter, Loader2, Edit, Trash2, Plus, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase, signInWithGoogle, saveVault, getCurrentUser, getPublicLeaderboard } from '@/lib/supabase';
 import { Toast } from '@/components/Toast';
 
@@ -100,18 +101,12 @@ function LeaderboardRow({ entry, rank }: { entry: any; rank: number }) {
         <div className="flex items-center gap-2">
           <span className="text-gray-500 font-mono text-sm">#{rank}</span>
           {entry.twitter_handle ? (
-            <a
-              href={`https://x.com/${entry.twitter_handle.replace('@', '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href={`/vault?id=${entry.id}`}
               className="text-[#1D9BF0] hover:underline font-medium flex items-center gap-1"
             >
               @{entry.twitter_handle.replace('@', '')}
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-              </svg>
-            </a>
+            </Link>
           ) : (
             <span className="text-gray-400 font-medium">Anonymous</span>
           )}
