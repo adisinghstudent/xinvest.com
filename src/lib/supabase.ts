@@ -83,7 +83,7 @@ export const toggleVaultPublic = async (vaultId: string, isPublic: boolean) => {
 export const getPublicLeaderboard = async () => {
     const { data, error } = await supabase
         .from('vaults')
-        .select('twitter_handle, pnl_24h, pnl_30d, pnl_all_time, updated_at')
+        .select('id, twitter_handle, tickers, weights, pnl_24h, pnl_30d, pnl_all_time, updated_at, created_at')
         .eq('is_public', true)
         .order('pnl_all_time', { ascending: false })
         .limit(50);
