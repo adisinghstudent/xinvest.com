@@ -105,6 +105,7 @@ export default function VaultPage() {
 
       // Toggle public state
       const newPublicState = !isPublic;
+      let currentVaultId = vaultId;
 
       if (vaultId) {
         // Update existing vault's public status
@@ -132,13 +133,36 @@ export default function VaultPage() {
         }
 
         if (data) {
+          currentVaultId = data.id;
           setVaultId(data.id);
           localStorage.setItem('currentVaultId', data.id);
         }
       }
 
+      // If making public, calculate and update PnL
+      if (newPublicState && currentVaultId) {
+        try {
+          console.log('Calculating PnL for vault...');
+          const pnlRes = await fetch('/api/update-pnl', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vaultId: currentVaultId }),
+          });
+
+          if (pnlRes.ok) {
+            const pnlData = await pnlRes.json();
+            console.log('PnL calculated:', pnlData.pnl);
+          } else {
+            console.warn('Failed to calculate PnL, but vault is still public');
+          }
+        } catch (pnlError) {
+          console.error('Error calculating PnL:', pnlError);
+          // Don't fail the whole operation if PnL calculation fails
+        }
+      }
+
       setIsPublic(newPublicState);
-      alert(newPublicState ? '✅ Vault is now public! Visible on leaderboard.' : '❌ Vault is now private.');
+      alert(newPublicState ? '✅ Vault is now public! Calculating performance...' : '❌ Vault is now private.');
     } catch (err: any) {
       setError(err.message || 'Failed to share vault');
     }

@@ -1,0 +1,8 @@
+{
+    "crons": [
+        {
+            "path": "/api/cron-update-pnl",
+            "schedule": "0 */6 * * *"
+        }
+    ]
+}
