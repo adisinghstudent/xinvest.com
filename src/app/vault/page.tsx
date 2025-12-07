@@ -84,15 +84,40 @@ export default function VaultPage() {
     }
   };
 
+  // Check for pending share action after login
+  useEffect(() => {
+    const checkPendingShare = async () => {
+      const pendingShare = localStorage.getItem('pendingShare');
+      if (pendingShare === 'true') {
+        const user = await getCurrentUser();
+        if (user) {
+          console.log('Found pending share action, resuming...');
+          localStorage.removeItem('pendingShare');
+          handleShareVault();
+        }
+      }
+    };
+
+    // Small delay to ensure auth state is ready
+    const timer = setTimeout(checkPendingShare, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleShareVault = async () => {
     try {
+      console.log('Starting handleShareVault...');
       // Check if user is authenticated
       const currentUser = await getCurrentUser();
 
       if (!currentUser) {
+        console.log('User not authenticated, redirecting to login...');
+        // Set pending flag
+        localStorage.setItem('pendingShare', 'true');
+
         // Trigger Google OAuth
         const { error: authError } = await signInWithGoogle();
         if (authError) {
+          console.error('Auth error:', authError);
           setError('Please sign in to share your vault');
           return;
         }
