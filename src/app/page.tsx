@@ -30,27 +30,10 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+
   useEffect(() => {
-    const saved = localStorage.getItem('vaultTickers');
-    const savedWeights = localStorage.getItem('vaultWeights');
-
-    if (saved) {
-      try {
-        const parsedTickers = JSON.parse(saved);
-        if (Array.isArray(parsedTickers) && parsedTickers.length > 0) {
-          setTickers(parsedTickers);
-        }
-
-        if (savedWeights) {
-          const parsedWeights = JSON.parse(savedWeights);
-          setPortfolioWeights(parsedWeights);
-        }
-      } catch (e) {
-        console.error('Error parsing saved tickers:', e);
-      }
-    }
-
-    // Fetch leaderboard
+    // Only fetch leaderboard on homepage
+    // Don't load saved tickers - let user start fresh
     (async () => {
       const { data } = await getPublicLeaderboard();
       if (data) setLeaderboard(data);
